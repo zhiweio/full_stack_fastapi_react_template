@@ -1,8 +1,7 @@
-from typing import  List, Optional
+from typing import List, Optional
+from uuid import UUID
 from pydantic import BaseModel, EmailStr
-from beanie import PydanticObjectId
 from api.common.enums.gender import Gender
-
 
 
 class BaseUserDto(BaseModel):
@@ -10,8 +9,9 @@ class BaseUserDto(BaseModel):
     last_name: str
     email: EmailStr
     gender: Gender
-    tenant_id: PydanticObjectId | None = None
-    role_id: PydanticObjectId | None = None
+    tenant_id: UUID | None = None
+    role_id: UUID | None = None
+
 
 class CreateUserDto(BaseUserDto):
     password: str
@@ -26,6 +26,7 @@ class UpdateUserDto(BaseModel):
     image_url: Optional[str] = None
     role_id: Optional[str] = None
     is_active: Optional[bool] = None
+
 
 class UserDto(BaseModel):
     id: str
@@ -58,11 +59,13 @@ class CreateUserResponseDto(BaseModel):
 class UserActivationRequestDto(BaseModel):
     token: str
 
+
 class UserResendActivationEmailRequestDto(BaseModel):
     email: EmailStr
     id: str
     first_name: str
-    tenant_id: Optional[str] = None 
+    tenant_id: Optional[str] = None
+
 
 class UserProfileImageUpdateDto(BaseModel):
     image_url: str
@@ -70,4 +73,3 @@ class UserProfileImageUpdateDto(BaseModel):
 
 class UserRoleUpdateRequestDto(BaseModel):
     role_id: str
-

@@ -1,18 +1,20 @@
-from beanie import PydanticObjectId
+from uuid import UUID
 
 from api.common.utils import get_logger, validate_password
 from api.core.exceptions import TenantNotFoundException
 from api.domain.dtos.tenant_dto import CreateTenantDto, TenantListDto
 from api.domain.entities.tenant import Tenant
-from api.infrastructure.persistence.repositories.tenant_repository_impl import TenantRepository
+from api.infrastructure.persistence.repositories.tenant_repository_impl import (
+    TenantRepository,
+)
 
 logger = get_logger(__name__)
+
 
 class TenantService:
     def __init__(self, tenant_repository: TenantRepository):
         self.tenant_repository = tenant_repository
         logger.info("Initialized.")
-
 
     async def list_tenants(self, skip: int = 0, limit: int = 10) -> TenantListDto:
         """List tenants with pagination."""
@@ -27,7 +29,9 @@ class TenantService:
 
     async def find_by_custom_domain(self, custom_domain: str) -> Tenant | None:
         """Get tenant by custom domain. Raises TenantNotFoundException if not found."""
-        existing = await self.tenant_repository.single_or_none(custom_domain=custom_domain)
+        existing = await self.tenant_repository.single_or_none(
+            custom_domain=custom_domain
+        )
         if existing is None:
             raise TenantNotFoundException(custom_domain)
         return existing
@@ -46,12 +50,11 @@ class TenantService:
             raise TenantNotFoundException(tenant_id)
         return existing
 
-    async def create_tenant(self, tenant_data: CreateTenantDto) -> PydanticObjectId | None:
+    async def create_tenant(self, tenant_data: CreateTenantDto) -> UUID | None:
         """Create a new tenant. Raises InvalidOperationException if admin password is weak."""
         validate_password(tenant_data.admin_password)
         response = await self.tenant_repository.create(tenant_data)
         return response
-
 
     async def delete_tenant(self, tenant_id: str) -> None:
         """Delete tenant by ID. Raises TenantNotFoundException if not found."""

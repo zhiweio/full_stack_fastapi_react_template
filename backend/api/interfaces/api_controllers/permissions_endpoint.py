@@ -1,4 +1,3 @@
-
 from fastapi import APIRouter
 
 from api.common.utils import get_logger
@@ -13,8 +12,6 @@ router.tags = ["Permissions"]
 
 
 @router.get("/", response_model=list[PermissionDto])
-async def get_permissions(
-    current_user: CurrentUser
-):
+async def get_permissions(current_user: CurrentUser):
     permissions = [{"name": perm.value} for perm in Permission]
     return permissions

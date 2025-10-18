@@ -1,5 +1,6 @@
 from logging.config import dictConfig
 
+
 def configure_logging() -> None:
     dictConfig(
         {
@@ -8,7 +9,7 @@ def configure_logging() -> None:
             "formatters": {
                 "console": {
                     # "class": "logging.Formatter",
-                     "()": "colorlog.ColoredFormatter",
+                    "()": "colorlog.ColoredFormatter",
                     "format": "%(log_color)s%(asctime)s -  %(name)s:%(lineno)d - %(levelname)s - %(message)s",
                     "datefmt": "%Y-%m-%d %H:%M:%S",
                     "log_colors": {
@@ -24,13 +25,13 @@ def configure_logging() -> None:
                 "default": {
                     "class": "logging.StreamHandler",
                     "formatter": "console",
-                    "level": "DEBUG"
+                    "level": "DEBUG",
                 }
             },
             "loggers": {
-                "uvicorn" : { "handlers": ["default"], "level": "INFO" },
-                "api": { "handlers": ["default"], "level": "DEBUG", "propagate": False },
-                "databases": { "handlers": ["default"], "level": "WARNING" }
-            }
+                "uvicorn": {"handlers": ["default"], "level": "INFO"},
+                "api": {"handlers": ["default"], "level": "DEBUG", "propagate": False},
+                "databases": {"handlers": ["default"], "level": "WARNING"},
+            },
         }
     )

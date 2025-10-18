@@ -13,6 +13,7 @@ from api.domain.entities.user_magic_link import UserMagicLink
 from api.domain.entities.user_passkey import UserPasskey, Challenges
 from api.domain.entities.user_password_reset import UserPasswordReset
 from api.domain.entities.user_preference import UserPreference
+
 logger = get_logger(__name__)
 
 models = [
@@ -28,14 +29,20 @@ models = [
     Challenges,
     UserMagicLink,
 ]
+
+
 class Database:
-    def __init__(self, uri: str, models: Sequence[type[Document] | type[UnionDoc] | type[View] | str] | None = None) -> None:
+    def __init__(
+        self,
+        uri: str,
+        models: Sequence[type[Document] | type[UnionDoc] | type[View] | str]
+        | None = None,
+    ) -> None:
         self.client = AsyncMongoClient(uri)
         self.models = models
         logger.debug("Database initializing...")
         self.is_tenant = False
-        
-    
+
     async def init_db(self, db_name: str, is_tenant: bool | None) -> None:
         self.db: AsyncDatabase = self.client[db_name]
         if self.models:
@@ -57,7 +64,7 @@ class Database:
     async def close(self) -> None:
         await self.client.close()
         logger.warning("Database connection has been closed.")
-    
+
     async def drop(self) -> None:
         await self.client.drop_database(self.db)
         logger.warning("Database has been deleted")
@@ -65,7 +72,5 @@ class Database:
     def is_tenant_active(self) -> bool:
         return self.is_tenant
 
-mongo_client = Database(
-    uri=settings.mongo_uri,
-    models=models
-)
+
+mongo_client = Database(uri=settings.mongo_uri, models=models)

@@ -6,6 +6,7 @@ from api.core.config import settings
 
 logger = get_logger(__name__)
 
+
 class SmtpEmail(IEmailService):
     def __init__(self):
         self.fm = FastMail(
@@ -22,14 +23,17 @@ class SmtpEmail(IEmailService):
             )
         )
 
-    async def send_email(self, to: str, subject: str, body: str, type: Literal[MessageType.html, MessageType.plain]) -> None:
+    async def send_email(
+        self,
+        to: str,
+        subject: str,
+        body: str,
+        type: Literal[MessageType.html, MessageType.plain],
+    ) -> None:
         try:
             logger.info(f"Sending email to {to} with subject '{subject}'")
             message = MessageSchema(
-                subject=subject,
-                recipients=[to],
-                body=body,
-                subtype=type
+                subject=subject, recipients=[to], body=body, subtype=type
             )
             await self.fm.send_message(message)
 
@@ -39,4 +43,6 @@ class SmtpEmail(IEmailService):
         except errors.ConnectionErrors as e:
             logger.error(f"Connection error while sending email to {to}: {str(e)}")
         except Exception as e:
-            logger.error(f"An unexpected error occurred while sending email to {to}: {str(e)}")
+            logger.error(
+                f"An unexpected error occurred while sending email to {to}: {str(e)}"
+            )

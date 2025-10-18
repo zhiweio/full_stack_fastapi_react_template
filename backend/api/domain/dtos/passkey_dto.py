@@ -1,4 +1,3 @@
-
 from webauthn.helpers.structs import AuthenticatorTransport
 from pydantic import BaseModel
 from typing import Optional

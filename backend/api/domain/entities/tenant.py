@@ -1,25 +1,33 @@
 from datetime import datetime
 import re
-from typing import Annotated, Literal, Optional
+from typing import Annotated, Literal, Optional, TYPE_CHECKING, List
 from urllib.parse import urlparse
-from beanie import Document, Indexed, PydanticObjectId
-from pydantic import AfterValidator, ConfigDict
-from api.common.utils import get_host_main_domain_name, get_utc_now
+from sqlmodel import Field, Relationship
+from pydantic import AfterValidator
+from api.domain.entities.api_base_model import ApiBaseModel
+from api.common.utils import get_host_main_domain_name
 from api.core.exceptions import InvalidCustomDomainException, InvalidSubdomainException
+
+if TYPE_CHECKING:
+    from .user import User
 
 SUBDOMAIN_REGEX = re.compile(r"^(?!-)[A-Za-z0-9-]{3,63}(?<!-)$")
 CUSTOM_DOMAIN_REGEX = re.compile(r"^(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}$")
+
 
 def validate_subdomain(subdomain: str | None) -> str | None:
     """Validate subdomain format. Raises InvalidSubdomainException if invalid. Returns None if subdomain is None."""
     if subdomain is None:
         return None
-    
+
     main_domain = get_host_main_domain_name()
 
-    if not subdomain.endswith(f".{main_domain}") and subdomain != main_domain or subdomain == main_domain:
+    if (
+        not subdomain.endswith(f".{main_domain}")
+        and subdomain != main_domain
+        or subdomain == main_domain
+    ):
         raise InvalidSubdomainException(subdomain)
-    
 
     # At this point, it's something like <prefix>.demo.fsrapp.xyz
     label = subdomain.removesuffix(f".{main_domain}")
@@ -30,16 +38,17 @@ def validate_subdomain(subdomain: str | None) -> str | None:
 
     if not SUBDOMAIN_REGEX.match(label):
         raise InvalidSubdomainException(subdomain)
-    
+
     return subdomain
+
 
 def validate_custom_domain(domain: str) -> str:
     """
     Validate a custom domain provided by a tenant.
-    
+
     - Must be a valid domain (e.g., tenant1.com, app.tenant1.com)
     - Cannot be your main domain or a subdomain of it
-    
+
     :param domain: Domain name provided by the tenant
     :return: The normalized, validated domain name
     :raises InvalidCustomDomainException: if validation fails
@@ -54,9 +63,10 @@ def validate_custom_domain(domain: str) -> str:
     if not hostname:
         raise InvalidCustomDomainException("Invalid domain format.")
 
-
     if parsed.path not in ("", "/") or parsed.query:
-        raise InvalidCustomDomainException("Custom domain must not include paths or query parameters.")
+        raise InvalidCustomDomainException(
+            "Custom domain must not include paths or query parameters."
+        )
 
     if not CUSTOM_DOMAIN_REGEX.match(hostname):
         raise InvalidCustomDomainException("Invalid domain format.")
@@ -64,7 +74,9 @@ def validate_custom_domain(domain: str) -> str:
     # Ensure it's not your main domain or a subdomain of it
     main_domain = get_host_main_domain_name()  # e.g. "demo.fsrapp.xyz"
     if hostname == main_domain or hostname.endswith(f".{main_domain}"):
-        raise InvalidCustomDomainException("Custom domain cannot be your application's main domain or its subdomain.")
+        raise InvalidCustomDomainException(
+            "Custom domain cannot be your application's main domain or its subdomain."
+        )
 
     return hostname
 
@@ -73,36 +85,27 @@ Subdomain = Annotated[str, AfterValidator(validate_subdomain)]
 CustomDomain = Annotated[str, AfterValidator(validate_custom_domain)]
 
 
+class Tenant(ApiBaseModel, table=True):
+    __tablename__ = "tenants"
 
+    name: str = Field(unique=True, index=True, max_length=100)
+    subdomain: Optional[Subdomain] = Field(default=None, max_length=255)
+    is_active: bool = Field(default=False)
+    custom_domain: Optional[CustomDomain] = Field(default=None, max_length=255)
+    custom_domain_status: str = Field(default="failed", max_length=50)
 
+    # 关系定义
+    users: List["User"] = Relationship(back_populates="tenant")
 
-class Tenant(Document):
-    name: str = Indexed(str, unique=True)
-    subdomain: Subdomain | None = None
-    created_at: datetime = get_utc_now()
-    updated_at: datetime = get_utc_now()
-    is_active: bool = False
-    custom_domain: Optional[CustomDomain] | None = None
-    custom_domain_status: Literal["active", "failed", "activation-progress"] = "failed"
-
-    model_config = ConfigDict(
-        json_encoders={
-            PydanticObjectId: str
+    def to_serializable_dict(self):
+        data = super().to_serializable_dict()
+        return {
+            **data,
+            "name": self.name,
+            "subdomain": str(self.subdomain) if self.subdomain else None,
+            "is_active": self.is_active,
+            "custom_domain": str(self.custom_domain) if self.custom_domain else None,
+            "custom_domain_status": str(self.custom_domain_status)
+            if self.custom_domain_status
+            else None,
         }
-    )
-
-    async def to_serializable_dict(self):
-        data = self.model_dump()
-        data["id"] = str(self.id)
-        data["created_at"] = str(self.created_at)
-        data["updated_at"] = str(self.updated_at)
-        data["subdomain"] = str(self.subdomain) if self.subdomain else None
-        data["is_active"] = self.is_active 
-        data["custom_domain"] = str(self.custom_domain) if self.custom_domain else None
-        data["custom_domain_status"] = str(self.custom_domain_status) if self.custom_domain_status else None
-        return data
-    
-    class Settings:
-        name = "tenants"
-    
-

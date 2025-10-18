@@ -1,16 +1,17 @@
 from typing import Annotated, Optional
+from uuid import UUID
 from starlette.middleware.base import BaseHTTPMiddleware
-from fastapi import  Depends, Request
-from beanie import PydanticObjectId
+from fastapi import Depends, Request
 from api.common.utils import get_host_main_domain_name, get_logger, is_subdomain
 from api.core.config import settings
 
 from api.core.container import get_tenant_service
+from api.infrastructure.persistence.database import db
 from api.core.exceptions import TenantNotFoundException
 from api.domain.entities.tenant import Tenant
-from api.infrastructure.persistence.mongodb import mongo_client as db
 
 logger = get_logger(__name__)
+
 
 class TenantMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
@@ -28,36 +29,47 @@ class TenantMiddleware(BaseHTTPMiddleware):
                 else:
                     logger.debug(f"Host '{tenant_host}' identified as custom domain.")
                     tenant = await tenant_service.find_by_custom_domain(tenant_host)
-                
+
                 tenant_id = str(tenant.id)
-                logger.debug(f"Tenant ID resolved from custom domain '{tenant_host}': {tenant_id}")
+                logger.debug(
+                    f"Tenant ID resolved from custom domain '{tenant_host}': {tenant_id}"
+                )
                 request.state.frontend_host = tenant_host
             except TenantNotFoundException as e:
-                logger.warning(f"Error resolving tenant from custom domain '{tenant_host}': {e}")
-                
-        
-        if tenant_id is None:
-            tenant_id = request.headers.get("X-Tenant-ID") or request.query_params.get('tenant_id') or None
+                logger.warning(
+                    f"Error resolving tenant from custom domain '{tenant_host}': {e}"
+                )
 
- 
+        if tenant_id is None:
+            tenant_id = (
+                request.headers.get("X-Tenant-ID")
+                or request.query_params.get("tenant_id")
+                or None
+            )
+
         if tenant_id is not None:
             logger.debug(f"Tenant ID found: {tenant_id}")
-            request.state.tenant_id = PydanticObjectId(tenant_id)
-            # Initialize the database for the tenant and initialize Beanie with tenant-specific models
-            await db.init_db(f"tenant_{tenant_id}", is_tenant=True)
-            logger.debug(f"Database initialized for tenant: tenant_{tenant_id}")
-            return await call_next(request)
-        
-        
-        # If no tenant ID is provided, ensure we are using the default database
-        if db.is_tenant_active():
-            # Reset to default DB if no tenant ID is provided
-            await db.init_db(settings.mongo_db_name, is_tenant=False)
-        request.state.tenant_id = None
-        logger.debug("No tenant ID provided, using default database.")
+            try:
+                # Convert to UUID and store in request state
+                tenant_uuid = UUID(tenant_id)
+                request.state.tenant_id = tenant_uuid
+
+                # Initialize database connection for tenant
+                await db.init_db(tenant_id=tenant_id)
+                logger.debug(f"Database initialized for tenant: {tenant_id}")
+
+                return await call_next(request)
+            except ValueError:
+                logger.warning(f"Invalid tenant ID format: {tenant_id}")
+                request.state.tenant_id = None
+                await db.init_db()  # Use default database
+        else:
+            # No tenant ID provided, use default database
+            request.state.tenant_id = None
+            await db.init_db()  # Use default database
+            logger.debug("No tenant ID provided, using default database.")
 
         return await call_next(request)
-        
 
 
 def get_tenant_host(request: Request) -> Optional[str]:
@@ -74,7 +86,7 @@ def get_tenant_host(request: Request) -> Optional[str]:
     if not host:
         return None
 
-    host = host.split(':')[0].lower()  # Remove port if present and convert to lowercase
+    host = host.split(":")[0].lower()  # Remove port if present and convert to lowercase
 
     # Compare against main domain
     main_domain = get_host_main_domain_name().lower()
@@ -85,15 +97,17 @@ def get_tenant_host(request: Request) -> Optional[str]:
     if host.startswith("localhost") or host.startswith("127.0.0.1"):
         # Handle localhost with optional
         return None
-    
+
     logger.debug(f"Extracted host: {host}")
     return host
 
-async def get_tenant_id(request: Request) -> PydanticObjectId | None:
+
+async def get_tenant_id(request: Request) -> UUID | None:
     return getattr(request.state, "tenant_id", None)
 
+
 async def frontend_dynamic_host(request: Request) -> str:
-   return getattr(request.state, "frontend_host", get_host_main_domain_name())
+    return getattr(request.state, "frontend_host", get_host_main_domain_name())
 
 
 FrontendHost = Annotated[str, Depends(frontend_dynamic_host)]

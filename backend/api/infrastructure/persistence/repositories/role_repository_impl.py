@@ -1,9 +1,13 @@
 from typing import Optional
-from beanie import PydanticObjectId
+from uuid import UUID
+from sqlmodel import select
+from sqlalchemy import func
+
 from api.common.base_repository import BaseRepository
 from api.common.utils import get_logger
 from api.domain.dtos.role_dto import CreateRoleDto, RoleListDto, UpdateRoleDto
 from api.domain.entities.role import Role
+from api.infrastructure.persistence.database import db
 
 logger = get_logger(__name__)
 
@@ -12,34 +16,74 @@ class RoleRepository(BaseRepository[Role]):
     def __init__(self):
         super().__init__(Role)
 
-    async def list (self, skip: int = 0, limit: int = 10) -> RoleListDto:
-        docs = await self.model.find_all().skip(skip).limit(limit).to_list()
-        total = await self.model.count()
-        return RoleListDto(
-            roles=[await doc.to_serializable_dict() for doc in docs],
-            skip=skip,
-            limit=limit,
-            total=total,
-            hasPrevious=skip > 0,
-            hasNext=skip + limit < total
-        )
+    async def list(
+        self, skip: int = 0, limit: int = 10, tenant_id: UUID = None
+    ) -> RoleListDto:
+        """获取角色列表"""
+        async with db.get_session() as session:
+            # 构建查询条件
+            statement = select(Role)
+            if tenant_id:
+                statement = statement.where(Role.tenant_id == tenant_id)
 
-    async def create(
-            self, 
-            data: CreateRoleDto,
-        ) -> PydanticObjectId | None:
-        new_role = Role(
-           name=data.name,
-           description=data.description,
-           tenant_id=data.tenant_id
-        )
-        result = await super().create(new_role.model_dump())
-        return result.id
+            # 获取总数
+            count_statement = select(func.count(Role.id))
+            if tenant_id:
+                count_statement = count_statement.where(Role.tenant_id == tenant_id)
 
+            total_result = await session.execute(count_statement)
+            total = total_result.scalar()
+
+            # 获取分页数据
+            statement = statement.offset(skip).limit(limit)
+            result = await session.execute(statement)
+            roles = result.scalars().all()
+
+            return RoleListDto(
+                roles=[role.to_serializable_dict() for role in roles],
+                skip=skip,
+                limit=limit,
+                total=total,
+                hasPrevious=skip > 0,
+                hasNext=skip + limit < total,
+            )
+
+    async def create(self, data: CreateRoleDto) -> UUID | None:
+        """创建角色"""
+        role_data = {
+            "name": data.name,
+            "description": data.description,
+            "tenant_id": data.tenant_id,
+        }
+        result = await super().create(role_data)
+        return result.id if result else None
 
     async def update(self, role_id: str, data: UpdateRoleDto) -> Optional[Role]:
-        updated_role = await super().update(id=role_id, data=data.model_dump(exclude_unset=True))
-        if updated_role:
-            return updated_role
-        logger.warning(f"No role found for the given role id: {role_id}")
-        return None
+        """更新角色"""
+        try:
+            # Handle both string and asyncpg UUID types
+            if isinstance(role_id, UUID):
+                role_uuid = role_id
+            elif hasattr(role_id, "__str__"):
+                # Convert asyncpg UUID or other UUID-like objects to string first
+                role_uuid = UUID(str(role_id))
+            else:
+                role_uuid = UUID(role_id)
+
+            updated_role = await super().update(
+                role_uuid, data.model_dump(exclude_unset=True)
+            )
+            if updated_role:
+                return updated_role
+            logger.warning(f"No role found for the given role id: {role_id}")
+            return None
+        except (ValueError, TypeError) as e:
+            logger.error(f"Invalid UUID format for role_id: {role_id}, error: {e}")
+            return None
+
+    async def get_by_name(self, name: str, tenant_id: UUID = None) -> Optional[Role]:
+        """根据名称获取角色"""
+        conditions = {"name": name}
+        if tenant_id:
+            conditions["tenant_id"] = tenant_id
+        return await self.single_or_none(**conditions)

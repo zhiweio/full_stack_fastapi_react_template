@@ -19,12 +19,15 @@ TEST_MONGO_URI = "mongodb://localhost:27012/test_db"
 @pytest.fixture
 async def test_app():
     # Initialize test database per test function (same loop as the test)
-    db = Database(uri=TEST_MONGO_URI, models=[User, Tenant, Role, UserPasswordReset, UserPreference])
+    db = Database(
+        uri=TEST_MONGO_URI,
+        models=[User, Tenant, Role, UserPasswordReset, UserPreference],
+    )
     await db.init_db("api_test_db", is_tenant=False)
 
     # Override the get_current_user dependency to return a mocked test user
     async def override_get_current_user():
-        return UserDto(     
+        return UserDto(
             first_name="Admin",
             last_name="User",
             id="68c302ef6bf7a039b7e9b385",
@@ -44,8 +47,6 @@ async def test_app():
 @pytest.fixture
 async def client(test_app):
     async with AsyncClient(
-        transport=ASGITransport(app=test_app),
-        base_url="http://test/api/v1"
+        transport=ASGITransport(app=test_app), base_url="http://test/api/v1"
     ) as client:
         yield client
-

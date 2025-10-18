@@ -8,12 +8,14 @@ class AIModelInfoDto(BaseModel):
     size: str
     created: str
 
+
 class AIHistoryDto(BaseModel):
     uid: str
     query: str
     response: str
     timestamp: str
     tenant_id: str | None = None
+
 
 class AIHistoriesDto(BaseModel):
     id: str
@@ -28,9 +30,9 @@ class AISessionDto(BaseModel):
     tenant_id: str | None = None
     user_id: str
 
+
 class AISessionByUserIdDto(AISessionDto):
     sessions: List[AIHistoriesDto]
-
 
 
 class AIAskRequestDto(BaseModel):

@@ -8,4 +8,3 @@ class ActivationEmailSchemaDto(BaseModel):
     first_name: str
     tenant_id: Optional[str] = None
     jwt_secret: Optional[str] = None  # Used for password reset tokens
-

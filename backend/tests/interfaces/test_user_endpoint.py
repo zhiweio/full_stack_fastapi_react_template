@@ -1,6 +1,12 @@
 import pytest
 from httpx import AsyncClient
-from api.domain.dtos.user_dto import CreateUserResponseDto, UpdateUserDto, UserListDto, CreateUserDto, UserDto
+from api.domain.dtos.user_dto import (
+    CreateUserResponseDto,
+    UpdateUserDto,
+    UserListDto,
+    CreateUserDto,
+    UserDto,
+)
 from api.common.enums.gender import Gender
 
 
@@ -10,7 +16,7 @@ async def create_user(client: AsyncClient) -> CreateUserResponseDto:
         first_name="Test",
         last_name="User",
         gender=Gender.OTHER,
-        password="Test@123!"
+        password="Test@123!",
     )
     response = await client.post("/users/", json=new_user.model_dump())
     assert response.status_code == 201
@@ -20,7 +26,7 @@ async def create_user(client: AsyncClient) -> CreateUserResponseDto:
 @pytest.mark.asyncio
 async def test_list_users_from_host(client: AsyncClient):
     """
-        List all the users:
+    List all the users:
     """
     response = await client.get("/users/?skip=0&limit=10")
     print(f"Request URL: {response.url}")
@@ -30,7 +36,7 @@ async def test_list_users_from_host(client: AsyncClient):
     assert response.status_code == 200
 
     data = UserListDto.model_validate(response.json())
- 
+
     assert data.users == []
     assert data.total == 0
     assert data.hasNext == False
@@ -42,7 +48,7 @@ async def test_list_users_from_host(client: AsyncClient):
 @pytest.mark.asyncio
 async def test_create_user_in_host(client: AsyncClient):
     """
-        Create a new user:
+    Create a new user:
     """
     new_user_response = await create_user(client)
 
@@ -54,11 +60,10 @@ async def test_create_user_in_host(client: AsyncClient):
     assert data.users[0].id == new_user_response.id
 
 
-
 @pytest.mark.asyncio
 async def test_get_user_by_id_from_host(client: AsyncClient):
     """
-        Get a user by ID:
+    Get a user by ID:
     """
     new_user_response = await create_user(client)
     response = await client.get(f"/users/{new_user_response.id}")
@@ -70,7 +75,7 @@ async def test_get_user_by_id_from_host(client: AsyncClient):
 @pytest.mark.asyncio
 async def test_update_user_by_id_from_host(client: AsyncClient):
     """
-        Update a user by ID:
+    Update a user by ID:
     """
     new_user_response = await create_user(client)
     response = await client.get(f"/users/{new_user_response.id}")
@@ -80,7 +85,9 @@ async def test_update_user_by_id_from_host(client: AsyncClient):
     # Update the user's email
     data.gender = Gender.MALE
     updated_data = UpdateUserDto(**data.model_dump())
-    response = await client.put(f"/users/{new_user_response.id}", json=updated_data.model_dump())
+    response = await client.put(
+        f"/users/{new_user_response.id}", json=updated_data.model_dump()
+    )
     assert response.status_code == 200
     new_user_updated_data = UserDto.model_validate(response.json())
     assert new_user_updated_data.gender == Gender.MALE
@@ -89,7 +96,7 @@ async def test_update_user_by_id_from_host(client: AsyncClient):
 @pytest.mark.asyncio
 async def test_delete_user_by_id_from_host(client: AsyncClient):
     """
-        Delete a user by ID:
+    Delete a user by ID:
     """
     new_user_response = await create_user(client)
     response = await client.delete(f"/users/{new_user_response.id}")
@@ -103,17 +110,20 @@ async def test_delete_user_by_id_from_host(client: AsyncClient):
 @pytest.mark.asyncio
 async def test_get_nonexistent_user_by_id_from_host(client: AsyncClient):
     """
-        Attempt to get a non-existent user by ID:
+    Attempt to get a non-existent user by ID:
     """
     response = await client.get("/users/68c3031f449ed3590028c778")
     assert response.status_code == 404
-    assert response.json()["error"] == "User with identifier 68c3031f449ed3590028c778 not found."
+    assert (
+        response.json()["error"]
+        == "User with identifier 68c3031f449ed3590028c778 not found."
+    )
 
 
 @pytest.mark.asyncio
 async def test_list_of_users_paginated_in_host(client: AsyncClient):
     """
-        List users with pagination:
+    List users with pagination:
     """
     for i in range(3):
         new_user = CreateUserDto(
@@ -121,7 +131,7 @@ async def test_list_of_users_paginated_in_host(client: AsyncClient):
             first_name=f"Test{i}",
             last_name="User",
             gender=Gender.OTHER,
-            password="Test@123!"
+            password="Test@123!",
         )
         response = await client.post("/users/", json=new_user.model_dump())
         assert response.status_code == 201

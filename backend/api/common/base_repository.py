@@ -1,62 +1,133 @@
-from typing import Any, Dict, List, Optional, TypeVar, Generic
-from beanie import Document, PydanticObjectId
-from beanie.operators import Set
-from beanie.odm.interfaces.aggregate import DocumentProjectionType, AggregationQuery
-
+from typing import Generic, TypeVar, Optional, List, Dict, Any, Tuple, Union
+from uuid import UUID
+from sqlmodel import SQLModel, select, delete, update
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import func
 from api.common.utils import get_logger
 
 logger = get_logger(__name__)
 
-T = TypeVar("T", bound=Document)
+T = TypeVar("T", bound=SQLModel)
+
 
 class BaseRepository(Generic[T]):
     def __init__(self, model: type[T]):
         self.model = model
 
+    async def create(self, data: Dict[str, Any]) -> T:
+        """创建新记录"""
+        from api.infrastructure.persistence.database import db
+
+        async with db.get_session() as session:
+            try:
+                instance = self.model(**data)
+                session.add(instance)
+                await session.commit()
+                await session.refresh(instance)
+                return instance
+            except Exception:
+                await session.rollback()
+                raise
+
+    async def get_by_id(self, id: UUID) -> Optional[T]:
+        """根据ID获取记录"""
+        from api.infrastructure.persistence.database import db
+
+        async with db.get_session() as session:
+            statement = select(self.model).where(self.model.id == id)
+            result = await session.execute(statement)
+            return result.scalar_one_or_none()
+
+    async def get_all(self, skip: int = 0, limit: int = 100) -> List[T]:
+        """获取所有记录"""
+        from api.infrastructure.persistence.database import db
+
+        async with db.get_session() as session:
+            statement = select(self.model).offset(skip).limit(limit)
+            result = await session.execute(statement)
+            return result.scalars().all()
+
+    async def update(self, id: UUID, data: Dict[str, Any]) -> Optional[T]:
+        """更新记录"""
+        from api.infrastructure.persistence.database import db
+
+        async with db.get_session() as session:
+            try:
+                # 先获取现有记录
+                statement = select(self.model).where(self.model.id == id)
+                result = await session.execute(statement)
+                existing = result.scalar_one_or_none()
+
+                if not existing:
+                    return None
+
+                # 更新字段
+                for key, value in data.items():
+                    if hasattr(existing, key):
+                        setattr(existing, key, value)
+
+                session.add(existing)
+                await session.commit()
+                await session.refresh(existing)
+                return existing
+            except Exception:
+                await session.rollback()
+                raise
+
+    async def delete(self, id: UUID) -> bool:
+        """删除记录"""
+        from api.infrastructure.persistence.database import db
+
+        async with db.get_session() as session:
+            try:
+                statement = delete(self.model).where(self.model.id == id)
+                result = await session.execute(statement)
+                await session.commit()
+                return result.rowcount > 0
+            except Exception:
+                await session.rollback()
+                raise
+
+    async def count(self, params: Optional[List] = None) -> int:
+        """统计记录数量"""
+        from api.infrastructure.persistence.database import db
+
+        async with db.get_session() as session:
+            statement = select(func.count(self.model.id))
+
+            # Apply where conditions if provided
+            if params:
+                for condition in params:
+                    statement = statement.where(condition)
+
+            result = await session.execute(statement)
+            return result.scalar()
+
+    async def find_by(self, **kwargs) -> List[T]:
+        """根据条件查找记录"""
+        from api.infrastructure.persistence.database import db
+
+        async with db.get_session() as session:
+            statement = select(self.model)
+
+            for key, value in kwargs.items():
+                if hasattr(self.model, key):
+                    statement = statement.where(getattr(self.model, key) == value)
+
+            result = await session.execute(statement)
+            return result.scalars().all()
+
     async def single_or_none(self, **kwargs) -> Optional[T]:
-        return await self.model.find(kwargs).first_or_none()
-    
-    async def get(self, id: str) -> Optional[T]:
-        return await self.model.get(PydanticObjectId(id))
+        """根据条件获取单个记录"""
+        from api.infrastructure.persistence.database import db
 
-    async def list(self) -> List[T]:
-        return await self.model.find_all().to_list()
+        async with db.get_session() as session:
+            statement = select(self.model)
 
-    async def create(self, data: dict) -> T:
-        doc = self.model(**data)
-        return await doc.insert()
+            for key, value in kwargs.items():
+                if hasattr(self.model, key):
+                    statement = statement.where(getattr(self.model, key) == value)
 
-    async def update(self, id: str, data: dict) -> Optional[T]:
-        doc = await self.model.get(document_id=id)
-        if not doc:
-            return None
-        await doc.update(Set(data))
-        return doc
-
-    async def delete(self, id: str) -> bool:
-        doc = await self.get(PydanticObjectId(id))
-        logger.info(f"Deleting document with id: {id}, Found doc: {doc is not None}")
-        if not doc:
-            return False
-        await doc.delete()
-        logger.info(f"Document with id: {id} deleted successfully.")
-        return True
-    
-    async def count(self, params: Optional[Any] | None = None) -> int:
-        if params:
-            return await self.model.find(params).count()
-        return await self.model.count()
-
-    async def aggregate(self, pipeline: List[dict], projection_model: type[DocumentProjectionType] | None = None) -> type[DocumentProjectionType] | AggregationQuery[Dict[str, Any]]:
-        if not projection_model:
-            return self.model.aggregate(pipeline)
-        else:
-            data = self.model.aggregate(pipeline, projection_model=projection_model)
-            return await data.to_list()
-        
-    async def collection_name(self) -> str:
-        return self.model.get_collection_name()
-
-    
-    async def search(self, query: Dict[str, Any], limit: int = 100) -> List[T]:
-        return await self.model.find(query).to_list(length=limit)
+            result = await session.execute(statement)
+            results = result.scalars().all()
+            return results[0] if results else None

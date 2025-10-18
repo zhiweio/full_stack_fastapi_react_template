@@ -1,4 +1,6 @@
-def email_changes_confirmation_template_html(user_first_name: str, email_change_link: str) -> str:
+def email_changes_confirmation_template_html(
+    user_first_name: str, email_change_link: str
+) -> str:
     """
     HTML email template for confirming email changes.
     """

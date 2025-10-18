@@ -1,21 +1,17 @@
-from datetime import datetime
-from beanie import PydanticObjectId
-from api.common.utils import get_utc_now
+from datetime import datetime, timedelta
+from uuid import UUID
+from sqlmodel import Field, Index
 from api.domain.entities.api_base_model import ApiBaseModel
-from pymongo import ASCENDING, IndexModel
+from api.common.utils import get_utc_now
 
 
-class UserMagicLink(ApiBaseModel):
-    user_id: PydanticObjectId
-    token: str
-    expires_at: datetime = get_utc_now()
+class UserMagicLink(ApiBaseModel, table=True):
+    __tablename__ = "user_magic_links"
 
-    class Settings:
-        name = "user_magic_links"
+    user_id: UUID = Field(foreign_key="users.id", index=True)
+    token: str = Field(unique=True, index=True)
+    expires_at: datetime = Field(
+        default_factory=lambda: get_utc_now() + timedelta(minutes=15)
+    )
 
-        indexes = [
-            IndexModel(
-                [("expires_at", ASCENDING)],
-                expireAfterSeconds=900 # 15 minutes
-            )
-        ]
+    __table_args__ = (Index("idx_expires_at", "expires_at"),)

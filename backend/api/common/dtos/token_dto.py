@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Literal, Optional
-from beanie import PydanticObjectId
+from uuid import UUID
 from pydantic import BaseModel, EmailStr, ConfigDict, field_serializer
 
 from api.common.utils import get_logger
@@ -8,30 +8,30 @@ from api.domain.dtos.role_dto import RoleDto
 
 logger = get_logger(__name__)
 
+
 class TokenPayloadDto(BaseModel):
-    sub: PydanticObjectId
+    sub: UUID
     email: EmailStr
     is_active: bool
     activated_at: datetime | None = None
-    tenant_id: PydanticObjectId | None = None
+    tenant_id: UUID | None = None
     role: RoleDto | None = None
-    tenant_id: PydanticObjectId | None = None
+    tenant_id: UUID | None = None
 
-    @field_serializer('sub', 'tenant_id')
-    def serialize_object_id(self, v: PydanticObjectId | None) -> str | None:
+    @field_serializer("sub", "tenant_id")
+    def serialize_object_id(self, v: UUID | None) -> str | None:
         if v is None:
             return None
         return str(v)
 
 
-
 class RefreshTokenPayloadDto(BaseModel):
-    sub: PydanticObjectId
-    tenant_id: PydanticObjectId | None  = None
+    sub: UUID
+    tenant_id: UUID | None = None
     type: Literal["refresh"] = "refresh"
 
-    @field_serializer('sub', 'tenant_id')
-    def serialize_object_id(self, v: PydanticObjectId | None) -> str | None:
+    @field_serializer("sub", "tenant_id")
+    def serialize_object_id(self, v: UUID | None) -> str | None:
         if v is None:
             return None
         return str(v)
@@ -42,7 +42,7 @@ class AccessTokenDto(BaseModel):
     token_type: str
     expires_in: datetime
 
-    
+
 class RefreshTokenDto(BaseModel):
     refresh_token: str
     refresh_token_expires_in: datetime
@@ -53,6 +53,7 @@ class TokenSetDto(AccessTokenDto, RefreshTokenDto):
     refresh_token_expires_in: int
     pass
 
+
 class TokenRefreshRequestDto(BaseModel):
     refresh_token: str
 
@@ -61,11 +62,12 @@ class ActivationTokenPayloadDto(BaseModel):
     user_id: str
     email: EmailStr
     tenant_id: str | None = None
-    type: Literal["activation", "password_reset_confirmation", "change_email_confirmation"] = "activation",
+    type: Literal[
+        "activation", "password_reset_confirmation", "change_email_confirmation"
+    ] = ("activation",)
     jwt_secret: str | None = None
 
 
 class VerifyEmailTokenPayloadDto(BaseModel):
     user_id: str
     email: EmailStr
-

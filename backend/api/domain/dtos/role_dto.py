@@ -1,5 +1,5 @@
 from typing import List, Optional
-from beanie import PydanticObjectId
+from uuid import UUID
 from pydantic import BaseModel, Field
 
 from api.domain.enum.permission import Permission
@@ -23,10 +23,12 @@ class RoleListDto(BaseModel):
     hasPrevious: bool
     hasNext: bool
 
+
 class CreateRoleDto(BaseModel):
     name: str
     description: Optional[str] | None = None
-    tenant_id: PydanticObjectId | None = None
+    tenant_id: UUID | None = None
+
 
 class UpdateRoleDto(CreateRoleDto):
     permissions: List[Permission] = Field(default_factory=list)
@@ -34,5 +36,3 @@ class UpdateRoleDto(CreateRoleDto):
 
 class CreateRoleResponseDto(BaseModel):
     id: str
-
-
