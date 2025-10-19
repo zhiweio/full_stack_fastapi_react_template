@@ -2,7 +2,12 @@ from typing import Annotated, Optional
 from uuid import UUID
 from starlette.middleware.base import BaseHTTPMiddleware
 from fastapi import Depends, Request
-from api.common.utils import get_host_main_domain_name, get_logger, is_subdomain
+from api.common.utils import (
+    get_host_main_domain_name,
+    get_logger,
+    is_subdomain,
+    validate_uuid,
+)
 from api.core.config import settings
 
 from api.core.container import get_container
@@ -51,7 +56,7 @@ class TenantMiddleware(BaseHTTPMiddleware):
             logger.debug(f"Tenant ID found: {tenant_id}")
             try:
                 # Convert to UUID and store in request state
-                tenant_uuid = UUID(tenant_id)
+                tenant_uuid = validate_uuid(tenant_id)
                 request.state.tenant_id = tenant_uuid
 
                 # Initialize database connection for tenant

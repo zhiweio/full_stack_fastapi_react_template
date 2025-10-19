@@ -5,7 +5,7 @@ from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.common.base_repository import BaseRepository
-from api.common.utils import get_logger
+from api.common.utils import get_logger, validate_uuid
 from api.domain.dtos.role_dto import CreateRoleDto, RoleListDto, UpdateRoleDto
 from api.domain.entities.role import Role
 
@@ -60,15 +60,7 @@ class RoleRepository(BaseRepository[Role]):
     async def update(self, role_id: str, data: UpdateRoleDto) -> Optional[Role]:
         """更新角色"""
         try:
-            # Handle both string and asyncpg UUID types
-            if isinstance(role_id, UUID):
-                role_uuid = role_id
-            elif hasattr(role_id, "__str__"):
-                # Convert asyncpg UUID or other UUID-like objects to string first
-                role_uuid = UUID(str(role_id))
-            else:
-                role_uuid = UUID(role_id)
-
+            role_uuid = validate_uuid(role_id)
             updated_role = await super().update(
                 role_uuid, data.model_dump(exclude_unset=True)
             )

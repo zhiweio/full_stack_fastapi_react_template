@@ -1,6 +1,6 @@
 from typing import List
 from uuid import uuid4, UUID
-from api.common.utils import get_logger, get_utc_now
+from api.common.utils import get_logger, get_utc_now, validate_uuid
 from api.domain.dtos.ai_dto import AIHistoriesDto, AISessionByUserIdDto
 from api.domain.entities.ai import AISessions, ChatHistoryAI, ChatSessionAI
 from api.infrastructure.persistence.repositories.chat_history_ai_repository_impl import (
@@ -38,7 +38,7 @@ class LocalAIService:
         # Get sessions for the user, ordered by created_at desc
         statement = (
             select(ChatSessionAI)
-            .where(ChatSessionAI.user_id == UUID(user_id))
+            .where(ChatSessionAI.user_id == validate_uuid(user_id))
             .order_by(desc(ChatSessionAI.created_at))
             .limit(limit)
         )
@@ -70,7 +70,7 @@ class LocalAIService:
         self, user_id: str, session_id: str
     ) -> List[AIHistoriesDto]:
         session = await self.chat_session_repository.single_or_none(
-            session_id=UUID(session_id), user_id=UUID(user_id)
+            session_id=validate_uuid(session_id), user_id=validate_uuid(user_id)
         )
         if not session:
             return []
@@ -92,7 +92,7 @@ class LocalAIService:
 
     async def delete_session(self, user_id: str, session_id: str) -> None:
         session = await self.chat_session_repository.single_or_none(
-            session_id=UUID(session_id), user_id=UUID(user_id)
+            session_id=validate_uuid(session_id), user_id=validate_uuid(user_id)
         )
         if not session:
             return
@@ -118,7 +118,7 @@ class LocalAIService:
         tenant_id: str | None = None,
     ) -> None:
         session = await self.chat_session_repository.single_or_none(
-            session_id=UUID(session_id)
+            session_id=validate_uuid(session_id)
         )
 
         histories = {
@@ -131,7 +131,7 @@ class LocalAIService:
         }
         data = ChatHistoryAI(
             histories=[histories["histories"]],
-            tenant_id=UUID(tenant_id) if tenant_id else None,
+            tenant_id=validate_uuid(tenant_id) if tenant_id else None,
         )
         # If session does not exist, then there is no history, so create a new history
         if session is None:
@@ -139,10 +139,10 @@ class LocalAIService:
                 data=data.model_dump()
             )
             session = ChatSessionAI(
-                session_id=UUID(session_id) if session_id else UUID(),
-                user_id=UUID(user_id),
+                session_id=validate_uuid(session_id) if session_id else validate_uuid(),
+                user_id=validate_uuid(user_id),
                 history_id=new_history.id,
-                tenant_id=UUID(tenant_id) if tenant_id else None,
+                tenant_id=validate_uuid(tenant_id) if tenant_id else None,
             )
             new_session = await self.chat_session_repository.create(
                 data=session.model_dump()
