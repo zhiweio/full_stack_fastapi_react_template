@@ -232,9 +232,8 @@ The frontend is built with modern React patterns and TypeScript for type safety:
    Edit `backend/.env` with your configuration:
 
    ```bash
-        # MongoDB settings
-        MONGO_URI=mongodb://127.0.0.1:27012
-        MONGO_DB_NAME=full_stack_fastapi_react_template
+        # PostgreSQL settings
+        DATABASE_URL=DATABASE_URL=postgresql+asyncpg://postgres:password@127.0.0.1:5432/postgres
 
         # JWT settings
         JWT_SECRET=your_jwt_secret_key

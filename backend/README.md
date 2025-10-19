@@ -149,7 +149,7 @@ api/
 ### Environment Variables
 ```bash
   # PostgreSQL settings
-  DATABASE_URL=postgresql+asyncpg://postgres:password@127.0.0.1:5432/full_stack_fastapi_react_template
+  DATABASE_URL=postgresql+asyncpg://postgres:password@127.0.0.1:5432/postgres
 
   # JWT settings
   JWT_SECRET=your_jwt_secret_key

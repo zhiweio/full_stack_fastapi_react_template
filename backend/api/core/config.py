@@ -8,12 +8,12 @@ load_dotenv()
 class Settings(BaseSettings):
     model_config = ConfigDict(env_file=".env", env_file_encoding="utf-8", extra="allow")
     # PostgreSQL 配置
-    database_url: str = "postgresql+asyncpg://postgres:password@127.0.0.1:5432/full_stack_fastapi_react_template"
+    database_url: str = "postgresql+asyncpg://postgres:password@127.0.0.1:5432/postgres"
     database_echo: bool = False  # SQL日志输出
 
     # 多租户数据库配置
     tenant_database_prefix: str = "tenant_"
-    default_database_name: str = "full_stack_fastapi_react_template"
+    default_database_name: str = "postgres"
 
     jwt_secret: str
     access_token_expire_minutes: int = 15

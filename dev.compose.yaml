@@ -1,14 +1,25 @@
-version: "3.9"
 services:
-  mongodb:
-    image: mongo:latest
-    container_name: mongodatabase
-    ports:
-      - "27012:27017"
-    volumes:
-      - mongodb_data:/data/db
-    # networks:
-    #   - fastapi_network
+  postgres:
+      image: postgres:17-alpine
+      container_name: postgres_db
+      environment:
+        POSTGRES_DB: postgres
+        POSTGRES_USER: postgres
+        POSTGRES_PASSWORD: password
+        POSTGRES_INITDB_ARGS: '--encoding=UTF-8 --lc-collate=C --lc-ctype=C'
+      ports:
+        - '5432:5432'
+      volumes:
+        - postgres_data:/var/lib/postgresql/data
+      restart: unless-stopped
+      healthcheck:
+        test: ['CMD-SHELL', 'pg_isready -U postgres -d postgres']
+        interval: 10s
+        timeout: 5s
+        retries: 5
+      # networks:
+      #   - fastapi_network
+
   redis:
     image: redis:latest
     container_name: redis
@@ -16,12 +27,14 @@ services:
       - "6372:6379"
     # networks:
     #   - fastapi_network
-  fake-smtp:
-    image: haravich/fake-smtp-server
-    container_name: fake_smtp
-    ports:
-      - "1023:1025"
-      - "1083:1080"
+
+  # fake-smtp:
+  #   image: haravich/fake-smtp-server
+  #   container_name: fake_smtp
+  #   ports:
+  #     - "1023:1025"
+  #     - "1083:1080"
+
   caddy:
     image: caddy:latest
     container_name: caddy
@@ -35,10 +48,10 @@ services:
     restart: unless-stopped
     # networks:
     #   - fastapi_network
-  
+
 
 volumes:
-  mongodb_data:
+  postgres_data:
   redis_data:
   caddy_data:
   caddy_config:
