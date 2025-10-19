@@ -1,27 +1,27 @@
-"use client";
+"use client"
 
-import { Button } from "@/components/ai-elements/button";
+import type { ComponentProps } from "react"
+import { Button } from "@/components/ai-elements/button"
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ai-elements/tooltip";
-import { cn } from "@/lib/utils";
-import type { ComponentProps } from "react";
+} from "@/components/ai-elements/tooltip"
+import { cn } from "@/lib/utils"
 
-export type ActionsProps = ComponentProps<"div">;
+export type ActionsProps = ComponentProps<"div">
 
 export const Actions = ({ className, children, ...props }: ActionsProps) => (
   <div className={cn("flex items-center gap-1", className)} {...props}>
     {children}
   </div>
-);
+)
 
 export type ActionProps = ComponentProps<typeof Button> & {
-  tooltip?: string;
-  label?: string;
-};
+  tooltip?: string
+  label?: string
+}
 
 export const Action = ({
   tooltip,
@@ -46,7 +46,7 @@ export const Action = ({
       {children}
       <span className="sr-only">{label || tooltip}</span>
     </Button>
-  );
+  )
 
   if (tooltip) {
     return (
@@ -58,8 +58,8 @@ export const Action = ({
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
-    );
+    )
   }
 
-  return button;
-};
+  return button
+}

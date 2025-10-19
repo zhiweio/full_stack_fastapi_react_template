@@ -1,645 +1,711 @@
-import React, { useState, useRef, useEffect, useTransition } from 'react'
-import { Card, CardContent } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Textarea } from '@/components/ui/textarea'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { ScrollArea } from '@/components/ui/scroll-area'
-import { Badge } from '@/components/ui/badge'
-import { Loading } from '@/components/shared/loading'
-import { cn, getApiClient, getTenant } from '@/lib/utils'
-import { Send, Bot, User, Sparkles, Copy, RefreshCw, Trash2, InfoIcon } from 'lucide-react'
-import { useAuthContext } from '@/components/providers/auth-provider'
-import { ListLocalAIModels } from '@/components/shared/list-local-ai-models'
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import { useAppConfig } from '@/components/providers/app-config-provider'
-import { toast } from 'sonner'
-import { AIChatHistory } from './ai-chat-history'
-import { NavLink, useSearchParams } from 'react-router'
-import { useAIChat } from '@/components/providers/ai-chat-provider'
-import { AIAskRequestDto, AIModelInfoDto } from '@/api'
+import {
+  Bot,
+  Copy,
+  InfoIcon,
+  RefreshCw,
+  Send,
+  Sparkles,
+  Trash2,
+  User,
+} from "lucide-react"
+import type React from "react"
+import { useEffect, useRef, useState, useTransition } from "react"
+import { NavLink, useSearchParams } from "react-router"
+import { toast } from "sonner"
+import type { AIAskRequestDto, AIModelInfoDto } from "@/api"
+import { useAIChat } from "@/components/providers/ai-chat-provider"
+import { useAppConfig } from "@/components/providers/app-config-provider"
+import { useAuthContext } from "@/components/providers/auth-provider"
+import { ListLocalAIModels } from "@/components/shared/list-local-ai-models"
+import { Loading } from "@/components/shared/loading"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { Textarea } from "@/components/ui/textarea"
+import { cn, getApiClient, getTenant } from "@/lib/utils"
+import { AIChatHistory } from "./ai-chat-history"
 
 interface Message {
-    id: string
-    content: string
-    role: 'user' | 'assistant'
-    timestamp: Date
-    isStreaming?: boolean
+  id: string
+  content: string
+  role: "user" | "assistant"
+  timestamp: Date
+  isStreaming?: boolean
 }
 
 interface ChatState {
-    messages: Message[]
-    isLoading: boolean
-    error: string | null
+  messages: Message[]
+  isLoading: boolean
+  error: string | null
 }
 
-
 export function AIChat() {
-    const [searchParams, setSearchParams] = useSearchParams()
-    const { user, accessToken } = useAuthContext()
-    const { getAIChatNewSession, fetchAllSessions } = useAIChat()
-    const { user_preferences, available_ai_models } = useAppConfig()
-    const [chatState, setChatState] = useState<ChatState>({
-        messages: [],
-        isLoading: false,
-        error: null
-    })
-    const [selectedModel, setSelectedModel] = useState<AIModelInfoDto>()
-    const [input, setInput] = useState('')
-    const scrollAreaRef = useRef<HTMLDivElement>(null)
-    const messagesEndRef = useRef<HTMLDivElement>(null)
-    const inputRef = useRef<HTMLTextAreaElement>(null)
-    const [pending, startTransition] = useTransition()
-    // Auto-resize textarea
-    const adjustTextareaHeight = () => {
-        const textarea = inputRef.current
-        if (textarea) {
-            textarea.style.height = 'auto'
-            textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px'
-        }
+  const [searchParams, setSearchParams] = useSearchParams()
+  const { user, accessToken } = useAuthContext()
+  const { getAIChatNewSession, fetchAllSessions } = useAIChat()
+  const { user_preferences, available_ai_models } = useAppConfig()
+  const [chatState, setChatState] = useState<ChatState>({
+    messages: [],
+    isLoading: false,
+    error: null,
+  })
+  const [selectedModel, setSelectedModel] = useState<AIModelInfoDto>()
+  const [input, setInput] = useState("")
+  const scrollAreaRef = useRef<HTMLDivElement>(null)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLTextAreaElement>(null)
+  const [pending, startTransition] = useTransition()
+  // Auto-resize textarea
+  const adjustTextareaHeight = () => {
+    const textarea = inputRef.current
+    if (textarea) {
+      textarea.style.height = "auto"
+      textarea.style.height = Math.min(textarea.scrollHeight, 120) + "px"
     }
+  }
 
-    const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-        setInput(e.target.value)
-        adjustTextareaHeight()
-    }
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setInput(e.target.value)
+    adjustTextareaHeight()
+  }
 
-    // Auto-scroll to bottom when new messages arrive or content changes
-    const scrollToBottom = () => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-    }
+  // Auto-scroll to bottom when new messages arrive or content changes
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+  }
 
-
-    // fetch histories
-    async function fetchHistories(sessionId: string) {
-
-        try {
-            const apiClient = getApiClient(accessToken)
-            const response = await apiClient.ai.getSingleSessionApiV1AiSessionsSessionIdGet({
-                sessionId: sessionId!
-            });
-            return response
-        } catch (error) {
-            throw new Error("Failed to fetch chat history for the session." + (error instanceof Error ? ` ${error.message}` : ''))
-        }
-
-    }
-
-    useEffect(() => {
-        scrollToBottom()
-    }, [chatState.messages])
-
-    // Also scroll when streaming content changes
-    useEffect(() => {
-        if (chatState.isLoading) {
-            const timer = setInterval(scrollToBottom, 100)
-            return () => clearInterval(timer)
-        }
-    }, [chatState.isLoading])
-
-    // Focus input on mount
-    useEffect(() => {
-        inputRef.current?.focus()
-    }, [])
-
-    // Load preferred model from user preferences
-    useEffect(() => {
-        if (user_preferences?.preferences?.model_name && available_ai_models) {
-            const preferredModel = available_ai_models.find(model => model.name === user_preferences.preferences.model_name)
-            setSelectedModel(preferredModel)
-        }
-    }, [user_preferences, available_ai_models])
-
-    useEffect(() => {
-        async function fetchSelectedSessionHistory() {
-            const sessionId = searchParams.get("session_id")
-            try {
-                const response = await fetchHistories(sessionId!);
-                setChatState({
-                    error: null,
-                    isLoading: true,
-                    messages: []
-                });
-
-                const result = response[0].histories
-                const messages: Message[] = [];
-
-                result.forEach(h => {
-                    if (h.query) {
-                        messages.push({
-                            id: h.uid,
-                            content: h.query,
-                            role: "user",
-                            timestamp: new Date(h.timestamp)
-                        });
-                    }
-
-                    if (h.response) {
-                        messages.push({
-                            id: h.uid,
-                            content: h.response,
-                            role: "assistant",
-                            timestamp: new Date(h.timestamp)
-                        });
-                    }
-                });
-
-
-                setTimeout(() => {
-                    setChatState(prev => ({
-                        ...prev,
-                        messages: [...messages],
-                        isLoading: false,
-                        error: null
-                    }))
-                }, 1000)
-
-
-            } catch (e) {
-                console.error("Failed to load previous conversations...")
-                setChatState(prev => ({
-                    ...prev,
-                    messages: [],
-                    isLoading: false,
-                    error: e instanceof Error ? e.message : 'An error occurred'
-                }))
-            }
-
-
-        }
-        if (searchParams.get("session_id") && !searchParams.get("new_session")) {
-            if (accessToken) {
-                startTransition(() => {
-                    fetchSelectedSessionHistory()
-                })
-            }
-        }
-    }, [searchParams, accessToken])
-
-    const generateId = () => Math.random().toString(36).substr(2, 9)
-
-    const sendMessage = async () => {
-        if (!input.trim() || chatState.isLoading) return
-        let sessionId = searchParams.get("session_id")
-        if (!sessionId) {
-            sessionId = await getAIChatNewSession()
-            setSearchParams({ session_id: sessionId, new_session: 'true' })
-        }
-
-        const userMessage: Message = {
-            id: generateId(),
-            content: input.trim(),
-            role: 'user',
-            timestamp: new Date()
-        }
-
-        const assistantMessage: Message = {
-            id: generateId(),
-            content: '',
-            role: 'assistant',
-            timestamp: new Date(),
-            isStreaming: true
-        }
-
-        setChatState(prev => ({
-            ...prev,
-            messages: [...prev.messages, userMessage, assistantMessage],
-            isLoading: true,
-            error: null
-        }))
-
-        setInput('')
-
-        // Reset textarea height
-        const textarea = inputRef.current
-        if (textarea) {
-            textarea.style.height = 'auto'
-        }
-
-        try {
-            const tenant = getTenant();
-            const payload: AIAskRequestDto = {
-                question: userMessage.content,
-                model_name: selectedModel?.name,
-                session_id: sessionId
-            }
-            const response = await fetch('/api/v1/ai/ask', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${accessToken}`,
-                    ...tenant?.id && { 'X-Tenant-ID': tenant.id }
-                },
-                body: JSON.stringify(payload)
-            })
-            if (!response.ok) throw new Error(response.statusText + " Check if you have selected AI Model.")
-            if (!response.body) throw new Error('No response body.')
-
-            const reader = response.body.getReader()
-
-            let accumulatedContent = ''
-
-            while (true) {
-                const { done, value } = await reader.read()
-                if (done) break
-
-                const chunk = new TextDecoder().decode(value, { stream: true })
-                accumulatedContent += chunk
-
-                setChatState(prev => ({
-                    ...prev,
-                    messages: prev.messages.map(msg =>
-                        msg.id === assistantMessage.id
-                            ? { ...msg, content: accumulatedContent }
-                            : msg
-                    )
-                }))
-            }
-
-            // Mark streaming as complete
-            setChatState(prev => ({
-                ...prev,
-                messages: prev.messages.map(msg =>
-                    msg.id === assistantMessage.id
-                        ? { ...msg, isStreaming: false }
-                        : msg
-                ),
-                isLoading: false
-            }))
-
-            const shouldRefresh = new URLSearchParams(window.location.search).get("new_session") === 'true'
-            if (shouldRefresh) {
-                await fetchAllSessions()
-
-            }
-
-        } catch (error) {
-            setChatState(prev => ({
-                ...prev,
-                messages: prev.messages.filter(msg => msg.id !== assistantMessage.id),
-                isLoading: false,
-                error: error instanceof Error ? error.message : 'An error occurred'
-            }))
-        }
-    }
-
-    const clearChat = () => {
-        setSearchParams({})
-        setChatState({
-            messages: [],
-            isLoading: false,
-            error: null
+  // fetch histories
+  async function fetchHistories(sessionId: string) {
+    try {
+      const apiClient = getApiClient(accessToken)
+      const response =
+        await apiClient.ai.getSingleSessionApiV1AiSessionsSessionIdGet({
+          sessionId: sessionId!,
         })
+      return response
+    } catch (error) {
+      throw new Error(
+        "Failed to fetch chat history for the session." +
+          (error instanceof Error ? ` ${error.message}` : "")
+      )
+    }
+  }
+
+  useEffect(() => {
+    scrollToBottom()
+  }, [chatState.messages])
+
+  // Also scroll when streaming content changes
+  useEffect(() => {
+    if (chatState.isLoading) {
+      const timer = setInterval(scrollToBottom, 100)
+      return () => clearInterval(timer)
+    }
+  }, [chatState.isLoading])
+
+  // Focus input on mount
+  useEffect(() => {
+    inputRef.current?.focus()
+  }, [])
+
+  // Load preferred model from user preferences
+  useEffect(() => {
+    if (user_preferences?.preferences?.model_name && available_ai_models) {
+      const preferredModel = available_ai_models.find(
+        (model) => model.name === user_preferences.preferences.model_name
+      )
+      setSelectedModel(preferredModel)
+    }
+  }, [user_preferences, available_ai_models])
+
+  useEffect(() => {
+    async function fetchSelectedSessionHistory() {
+      const sessionId = searchParams.get("session_id")
+      try {
+        const response = await fetchHistories(sessionId!)
+        setChatState({
+          error: null,
+          isLoading: true,
+          messages: [],
+        })
+
+        const result = response[0].histories
+        const messages: Message[] = []
+
+        result.forEach((h) => {
+          if (h.query) {
+            messages.push({
+              id: h.uid,
+              content: h.query,
+              role: "user",
+              timestamp: new Date(h.timestamp),
+            })
+          }
+
+          if (h.response) {
+            messages.push({
+              id: h.uid,
+              content: h.response,
+              role: "assistant",
+              timestamp: new Date(h.timestamp),
+            })
+          }
+        })
+
+        setTimeout(() => {
+          setChatState((prev) => ({
+            ...prev,
+            messages: [...messages],
+            isLoading: false,
+            error: null,
+          }))
+        }, 1000)
+      } catch (e) {
+        console.error("Failed to load previous conversations...")
+        setChatState((prev) => ({
+          ...prev,
+          messages: [],
+          isLoading: false,
+          error: e instanceof Error ? e.message : "An error occurred",
+        }))
+      }
+    }
+    if (searchParams.get("session_id") && !searchParams.get("new_session")) {
+      if (accessToken) {
+        startTransition(() => {
+          fetchSelectedSessionHistory()
+        })
+      }
+    }
+  }, [searchParams, accessToken])
+
+  const generateId = () => Math.random().toString(36).substr(2, 9)
+
+  const sendMessage = async () => {
+    if (!input.trim() || chatState.isLoading) return
+    let sessionId = searchParams.get("session_id")
+    if (!sessionId) {
+      sessionId = await getAIChatNewSession()
+      setSearchParams({ session_id: sessionId, new_session: "true" })
     }
 
-    const copyMessage = (content: string) => {
-        navigator.clipboard.writeText(content)
+    const userMessage: Message = {
+      id: generateId(),
+      content: input.trim(),
+      role: "user",
+      timestamp: new Date(),
     }
 
-    const retryLastMessage = () => {
-        if (chatState.messages.length > 0) {
-            const lastUserMessage = [...chatState.messages].reverse().find(m => m.role === 'user')
-            if (lastUserMessage) {
-                setInput(lastUserMessage.content)
-                // Adjust textarea height after setting content
-                setTimeout(adjustTextareaHeight, 0)
-                // Remove the last assistant message if it exists
-                setChatState(prev => ({
-                    ...prev,
-                    messages: prev.messages.filter((msg, index, arr) =>
-                        !(msg.role === 'assistant' && index === arr.length - 1)
-                    )
-                }))
-            }
-        }
+    const assistantMessage: Message = {
+      id: generateId(),
+      content: "",
+      role: "assistant",
+      timestamp: new Date(),
+      isStreaming: true,
     }
 
-    const handleKeyPress = (e: React.KeyboardEvent) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault()
-            sendMessage()
-        }
+    setChatState((prev) => ({
+      ...prev,
+      messages: [...prev.messages, userMessage, assistantMessage],
+      isLoading: true,
+      error: null,
+    }))
+
+    setInput("")
+
+    // Reset textarea height
+    const textarea = inputRef.current
+    if (textarea) {
+      textarea.style.height = "auto"
     }
 
-    const onSelectModelEvent = async (model: AIModelInfoDto) => {
-        try {
-            const apiClient = getApiClient(accessToken)
-            await apiClient.ai.setPreferredModelApiV1AiSetModelPreferenceModelNamePut({ modelName: model.name })
-            setSelectedModel(model)
-            toast.success(`Model set to ${model.name}`, { richColors: true, position: "top-center" })
-        } catch (error) {
-            console.error("Failed to set model preference:", error)
-            toast.error("Failed to set model preference", { richColors: true, position: "top-center" })
-        }
+    try {
+      const tenant = getTenant()
+      const payload: AIAskRequestDto = {
+        question: userMessage.content,
+        model_name: selectedModel?.name,
+        session_id: sessionId,
+      }
+      const response = await fetch("/api/v1/ai/ask", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+          ...(tenant?.id && { "X-Tenant-ID": tenant.id }),
+        },
+        body: JSON.stringify(payload),
+      })
+      if (!response.ok)
+        throw new Error(
+          response.statusText + " Check if you have selected AI Model."
+        )
+      if (!response.body) throw new Error("No response body.")
+
+      const reader = response.body.getReader()
+
+      let accumulatedContent = ""
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        const chunk = new TextDecoder().decode(value, { stream: true })
+        accumulatedContent += chunk
+
+        setChatState((prev) => ({
+          ...prev,
+          messages: prev.messages.map((msg) =>
+            msg.id === assistantMessage.id
+              ? { ...msg, content: accumulatedContent }
+              : msg
+          ),
+        }))
+      }
+
+      // Mark streaming as complete
+      setChatState((prev) => ({
+        ...prev,
+        messages: prev.messages.map((msg) =>
+          msg.id === assistantMessage.id ? { ...msg, isStreaming: false } : msg
+        ),
+        isLoading: false,
+      }))
+
+      const shouldRefresh =
+        new URLSearchParams(window.location.search).get("new_session") ===
+        "true"
+      if (shouldRefresh) {
+        await fetchAllSessions()
+      }
+    } catch (error) {
+      setChatState((prev) => ({
+        ...prev,
+        messages: prev.messages.filter((msg) => msg.id !== assistantMessage.id),
+        isLoading: false,
+        error: error instanceof Error ? error.message : "An error occurred",
+      }))
     }
+  }
 
-    return (
-        <section className="h-full flex flex-col pb-10">
-            {/* Page Header */}
-            {available_ai_models?.length == 0 && (
-                <Alert className='mb-5' variant="destructive">
-                    <AlertTitle>No AI Models Available</AlertTitle>
-                    <AlertDescription>
-                        Please ensure you have installed locally running AI models.
-                        <NavLink to="https://docs.ollama.com/quickstart"
-                            target="_blank" className="underline underline-offset-4 font-medium ml-1">
-                            Learn more
-                        </NavLink>
-                    </AlertDescription>
-                </Alert>
-            )}
-            <section className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-                <section className="px-3 sm:px-4 py-4 sm:py-6">
-                    <section className="flex items-center flex-wrap md:flex-nowrap justify-between">
-                        <section className="flex items-center space-x-2 sm:space-x-3">
-                            <section className="p-2 sm:p-3 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg">
-                                <Sparkles className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-                            </section>
-                            <section className="min-w-0 flex-1">
-                                <h1 className="text-lg sm:text-2xl font-bold truncate">AI Assistant</h1>
-                                <section className="flex items-center space-x-2">
-                                    <p className="text-muted-foreground text-sm sm:text-base hidden sm:block">
-                                        Chat with our intelligent AI assistant
-                                    </p>
+  const clearChat = () => {
+    setSearchParams({})
+    setChatState({
+      messages: [],
+      isLoading: false,
+      error: null,
+    })
+  }
 
-                                </section>
-                                {selectedModel && (
-                                    <Badge variant="secondary" className="text-xs bg-primary/10 hover:bg-primary/20">
-                                        <section className="w-2 h-2 bg-green-500 rounded-full mr-1.5"></section>
-                                        {selectedModel.name}
-                                    </Badge>
-                                )}
-                            </section>
-                        </section>
+  const copyMessage = (content: string) => {
+    navigator.clipboard.writeText(content)
+  }
 
-                        <section className="flex items-center mt-5 space-x-3 sm:space-x-4">
-                            <section className="hidden sm:block">
-                                <ListLocalAIModels
-                                    onModelSelect={onSelectModelEvent}
-                                    selectedModel={selectedModel}
-                                />
-                            </section>
+  const retryLastMessage = () => {
+    if (chatState.messages.length > 0) {
+      const lastUserMessage = [...chatState.messages]
+        .reverse()
+        .find((m) => m.role === "user")
+      if (lastUserMessage) {
+        setInput(lastUserMessage.content)
+        // Adjust textarea height after setting content
+        setTimeout(adjustTextareaHeight, 0)
+        // Remove the last assistant message if it exists
+        setChatState((prev) => ({
+          ...prev,
+          messages: prev.messages.filter(
+            (msg, index, arr) =>
+              !(msg.role === "assistant" && index === arr.length - 1)
+          ),
+        }))
+      }
+    }
+  }
 
-                            <section className="flex space-x-1 sm:space-x-2 mt-6">
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={retryLastMessage}
-                                    disabled={chatState.isLoading || chatState.messages.length === 0}
-                                    className="hidden sm:flex"
-                                >
-                                    <RefreshCw className="w-4 h-4 sm:mr-2" />
-                                    <span className="hidden sm:inline">Retry</span>
-                                </Button>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={retryLastMessage}
-                                    disabled={chatState.isLoading || chatState.messages.length === 0}
-                                    className="sm:hidden"
-                                >
-                                    <RefreshCw className="w-4 h-4" />
-                                </Button>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={clearChat}
-                                    disabled={chatState.isLoading}
-                                    className="hidden sm:flex"
-                                >
-                                    <Trash2 className="w-4 h-4 sm:mr-2" />
-                                    <span className="hidden sm:inline">Clear</span>
-                                </Button>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={clearChat}
-                                    disabled={chatState.isLoading}
-                                    className="sm:hidden"
-                                >
-                                    <Trash2 className="w-4 h-4" />
-                                </Button>
-                            </section>
-                        </section>
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault()
+      sendMessage()
+    }
+  }
 
-                        {/* Mobile Model Selection */}
-                        <section className="sm:hidden mt-4 w-full">
-                            <ListLocalAIModels
-                                onModelSelect={setSelectedModel}
-                                selectedModel={selectedModel}
-                            />
-                        </section>
-                    </section>
+  const onSelectModelEvent = async (model: AIModelInfoDto) => {
+    try {
+      const apiClient = getApiClient(accessToken)
+      await apiClient.ai.setPreferredModelApiV1AiSetModelPreferenceModelNamePut(
+        { modelName: model.name }
+      )
+      setSelectedModel(model)
+      toast.success(`Model set to ${model.name}`, {
+        richColors: true,
+        position: "top-center",
+      })
+    } catch (error) {
+      console.error("Failed to set model preference:", error)
+      toast.error("Failed to set model preference", {
+        richColors: true,
+        position: "top-center",
+      })
+    }
+  }
+
+  return (
+    <section className="h-full flex flex-col pb-10">
+      {/* Page Header */}
+      {available_ai_models?.length == 0 && (
+        <Alert className="mb-5" variant="destructive">
+          <AlertTitle>No AI Models Available</AlertTitle>
+          <AlertDescription>
+            Please ensure you have installed locally running AI models.
+            <NavLink
+              to="https://docs.ollama.com/quickstart"
+              target="_blank"
+              className="underline underline-offset-4 font-medium ml-1"
+            >
+              Learn more
+            </NavLink>
+          </AlertDescription>
+        </Alert>
+      )}
+      <section className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <section className="px-3 sm:px-4 py-4 sm:py-6">
+          <section className="flex items-center flex-wrap md:flex-nowrap justify-between">
+            <section className="flex items-center space-x-2 sm:space-x-3">
+              <section className="p-2 sm:p-3 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg">
+                <Sparkles className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+              </section>
+              <section className="min-w-0 flex-1">
+                <h1 className="text-lg sm:text-2xl font-bold truncate">
+                  AI Assistant
+                </h1>
+                <section className="flex items-center space-x-2">
+                  <p className="text-muted-foreground text-sm sm:text-base hidden sm:block">
+                    Chat with our intelligent AI assistant
+                  </p>
                 </section>
+                {selectedModel && (
+                  <Badge
+                    variant="secondary"
+                    className="text-xs bg-primary/10 hover:bg-primary/20"
+                  >
+                    <section className="w-2 h-2 bg-green-500 rounded-full mr-1.5"></section>
+                    {selectedModel.name}
+                  </Badge>
+                )}
+              </section>
             </section>
-            {!selectedModel?.name && (
-                <Alert className='mt-4'>
-                    <InfoIcon className="w-4 h-4 mr-2" />
-                    <AlertTitle>Information</AlertTitle>
-                    <AlertDescription>Please select a local AI model to start chatting with the assistant.</AlertDescription>
-                </Alert>
-            )}
 
+            <section className="flex items-center mt-5 space-x-3 sm:space-x-4">
+              <section className="hidden sm:block">
+                <ListLocalAIModels
+                  onModelSelect={onSelectModelEvent}
+                  selectedModel={selectedModel}
+                />
+              </section>
 
-            {/* Chat Container */}
-
-            {/** Mobile view chat history */}
-            <AIChatHistory mobile />
-
-            <section className="flex">
-                <AIChatHistory />
-                <section className="flex-1 py-3 sm:py-6">
-                    <section className="flex flex-col h-full space-y-3 sm:space-y-4">
-                        {/* Chat Messages */}
-                        <Card className={cn("flex-1 flex flex-col")}>
-                            <CardContent className="flex-1 p-0">
-                                <ScrollArea className="h-[calc(100vh-280px)] sm:h-[600px] p-3 sm:p-6" ref={scrollAreaRef}>
-                                    {chatState.messages.length === 0 ? (
-                                        <>
-                                            {(pending || chatState.isLoading) ? (
-                                                <Loading variant='dots' className='absolute inset-0 flex items-center justify-center' />
-                                            ) : (
-                                                <section className="flex flex-col items-center justify-center h-full text-center space-y-4 sm:space-y-6 px-4">
-                                                    <section className="p-4 sm:p-6 bg-gradient-to-r from-blue-100 to-purple-100 dark:from-blue-900/20 dark:to-purple-900/20 rounded-full">
-                                                        <Bot className="w-8 h-8 sm:w-12 sm:h-12 text-blue-600" />
-                                                    </section>
-                                                    <section className="max-w-md">
-                                                        <h3 className="text-lg sm:text-xl font-semibold mb-2">Welcome to AI Chat</h3>
-                                                        <p className="text-muted-foreground text-sm sm:text-base">
-                                                            Start a conversation with our AI assistant. Ask questions, get help with coding, brainstorm ideas, or just have a friendly chat!
-                                                        </p>
-                                                    </section>
-                                                    <section className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 max-w-md w-full">
-                                                        {[
-                                                            "What can you help me with?",
-                                                            "Explain quantum computing",
-                                                            "Write a Python function",
-                                                            "Help me brainstorm ideas"
-                                                        ].map((suggestion, index) => (
-                                                            <Button
-                                                                key={index}
-                                                                variant="outline"
-                                                                size="sm"
-                                                                onClick={() => {
-                                                                    setInput(suggestion)
-                                                                    setTimeout(adjustTextareaHeight, 0)
-                                                                }}
-                                                                className="justify-start h-auto p-2 sm:p-3 text-left whitespace-normal text-xs sm:text-sm"
-                                                            >
-                                                                {suggestion}
-                                                            </Button>
-                                                        ))}
-                                                    </section>
-                                                </section>
-                                            )}
-
-                                        </>
-                                    ) : (
-                                        <section className="space-y-4 sm:space-y-6">
-                                            {chatState.messages.map((message) => (
-                                                <section
-                                                    key={message.id}
-                                                    className={cn(
-                                                        "flex space-x-2 sm:space-x-4",
-                                                        message.role === 'user' ? 'justify-end' : 'justify-start'
-                                                    )}
-                                                >
-                                                    {message.role === 'assistant' && (
-                                                        <Avatar className="w-6 h-6 sm:w-8 sm:h-8 mt-1 flex-shrink-0">
-                                                            <AvatarFallback className="bg-gradient-to-r from-blue-500 to-purple-600">
-                                                                <Bot className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
-                                                            </AvatarFallback>
-                                                        </Avatar>
-                                                    )}
-
-                                                    <section
-                                                        className={cn(
-                                                            "max-w-[85%] sm:max-w-[75%] rounded-xl px-3 sm:px-4 py-2 sm:py-3 break-words group relative",
-                                                            message.role === 'user'
-                                                                ? 'bg-primary text-primary-foreground ml-auto'
-                                                                : 'bg-muted hover:bg-muted/80 transition-colors'
-                                                        )}
-                                                    >
-                                                        <section className="whitespace-pre-wrap text-sm leading-relaxed">
-                                                            {message.content}
-                                                        </section>
-                                                        {message.isStreaming && (
-                                                            <section className="mt-2 sm:mt-3 flex items-center space-x-2">
-                                                                <Loading variant="dots" size="sm" />
-                                                                <span className="text-xs opacity-70">AI is typing...</span>
-                                                            </section>
-                                                        )}
-
-                                                        {/* Message actions */}
-                                                        {!message.isStreaming && message.content && (
-                                                            <section className="flex items-center justify-between mt-2 border-t border-border/50">
-                                                                <span className="text-xs ">
-                                                                    {message.timestamp.toLocaleTimeString()}
-                                                                </span>
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="sm"
-                                                                    onClick={() => copyMessage(message.content)}
-                                                                    className="h-6 sm:h-7 px-1 sm:px-2 text-xs "
-                                                                >
-                                                                    <Copy className="w-3 h-3 sm:mr-1" />
-                                                                    <span className="hidden sm:inline">Copy</span>
-                                                                </Button>
-                                                            </section>
-                                                        )}
-                                                    </section>
-
-                                                    {message.role === 'user' && (
-                                                        <Avatar className="w-6 h-6 sm:w-8 sm:h-8 mt-1 flex-shrink-0">
-                                                            <AvatarImage src={user?.image_url ?? "https://github.com/evilrabbit.png"} alt={user?.last_name} />
-                                                            <AvatarFallback className="bg-primary">
-                                                                <User className="w-3 h-3 sm:w-4 sm:h-4 text-primary-foreground" />
-                                                            </AvatarFallback>
-                                                        </Avatar>
-                                                    )}
-                                                </section>
-                                            ))}
-                                            {/* Invisible section for scrolling to bottom */}
-                                            <section ref={messagesEndRef} />
-                                        </section>
-                                    )}
-                                </ScrollArea>
-                            </CardContent>
-                        </Card>
-
-                        {/* Error Display */}
-                        {chatState.error && (
-                            <Card className="border-destructive bg-destructive/5">
-                                <CardContent className="p-3 sm:p-4">
-                                    <section className="flex items-center justify-between">
-                                        <section className="flex items-center space-x-2 text-destructive">
-                                            <span className="text-sm font-medium">Error: {chatState.error}</span>
-                                        </section>
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={() => setChatState(prev => ({ ...prev, error: null }))}
-                                        >
-                                            Dismiss
-                                        </Button>
-                                    </section>
-                                </CardContent>
-                            </Card>
-                        )}
-
-                        {/* Input Area */}
-                        <Card className="border-2 border-dashed border-muted-foreground/25 hover:border-muted-foreground/50 transition-colors">
-                            <CardContent className="p-3 sm:p-4">
-                                <section className="flex space-x-2 sm:space-x-3">
-                                    <section className="flex-1 relative">
-                                        <Textarea
-                                            ref={inputRef}
-                                            value={input}
-                                            onChange={handleInputChange}
-                                            onKeyUp={handleKeyPress}
-                                            placeholder="Type your message..."
-                                            disabled={chatState.isLoading}
-                                            className="pr-8 sm:pr-12 min-h-[40px] sm:min-h-[44px] max-h-[120px] text-sm sm:text-base resize-none"
-                                            maxLength={2000}
-                                            rows={1}
-                                        />
-                                        {chatState.isLoading && (
-                                            <section className="absolute right-2 sm:right-3 top-1/2 transform -translate-y-1/2">
-                                                <Loading variant="spinner" size="sm" />
-                                            </section>
-                                        )}
-                                        {available_ai_models?.length === 0 && (
-                                            <section className="pt-4 flex items-center">
-                                                <InfoIcon className="w-4 h-4 text-muted-foreground" />
-                                                <span className="ml-2 text-xs text-muted-foreground">No AI models available. Please install a local AI model to start chatting.</span>
-                                            </section>
-                                        )}
-                                    </section>
-                                    <Button
-                                        onClick={sendMessage}
-                                        disabled={!input.trim() || chatState.isLoading || !selectedModel?.name || available_ai_models?.length === 0}
-                                        className="px-3 sm:px-6 h-10 sm:h-11"
-                                        size="default"
-                                    >
-                                        <Send className="w-4 h-4 sm:mr-2" />
-                                        <span className="hidden sm:inline">Send</span>
-                                    </Button>
-                                </section>
-                                <section className="flex items-center justify-between mt-2 sm:mt-3 text-xs text-muted-foreground">
-                                    <span className="hidden sm:inline">Press Enter to send • Shift+Enter for new line</span>
-                                    <span className="sm:hidden">Enter to send</span>
-                                    <span className={cn(
-                                        "font-mono",
-                                        input.length > 1800 && "text-orange-500",
-                                        input.length > 1950 && "text-destructive"
-                                    )}>
-                                        {input.length}/2000
-                                    </span>
-                                </section>
-                            </CardContent>
-                        </Card>
-                    </section>
-                </section>
+              <section className="flex space-x-1 sm:space-x-2 mt-6">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={retryLastMessage}
+                  disabled={
+                    chatState.isLoading || chatState.messages.length === 0
+                  }
+                  className="hidden sm:flex"
+                >
+                  <RefreshCw className="w-4 h-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Retry</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={retryLastMessage}
+                  disabled={
+                    chatState.isLoading || chatState.messages.length === 0
+                  }
+                  className="sm:hidden"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={clearChat}
+                  disabled={chatState.isLoading}
+                  className="hidden sm:flex"
+                >
+                  <Trash2 className="w-4 h-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Clear</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={clearChat}
+                  disabled={chatState.isLoading}
+                  className="sm:hidden"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              </section>
             </section>
+
+            {/* Mobile Model Selection */}
+            <section className="sm:hidden mt-4 w-full">
+              <ListLocalAIModels
+                onModelSelect={setSelectedModel}
+                selectedModel={selectedModel}
+              />
+            </section>
+          </section>
         </section>
-    )
+      </section>
+      {!selectedModel?.name && (
+        <Alert className="mt-4">
+          <InfoIcon className="w-4 h-4 mr-2" />
+          <AlertTitle>Information</AlertTitle>
+          <AlertDescription>
+            Please select a local AI model to start chatting with the assistant.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Chat Container */}
+
+      {/** Mobile view chat history */}
+      <AIChatHistory mobile />
+
+      <section className="flex">
+        <AIChatHistory />
+        <section className="flex-1 py-3 sm:py-6">
+          <section className="flex flex-col h-full space-y-3 sm:space-y-4">
+            {/* Chat Messages */}
+            <Card className={cn("flex-1 flex flex-col")}>
+              <CardContent className="flex-1 p-0">
+                <ScrollArea
+                  className="h-[calc(100vh-280px)] sm:h-[600px] p-3 sm:p-6"
+                  ref={scrollAreaRef}
+                >
+                  {chatState.messages.length === 0 ? (
+                    <>
+                      {pending || chatState.isLoading ? (
+                        <Loading
+                          variant="dots"
+                          className="absolute inset-0 flex items-center justify-center"
+                        />
+                      ) : (
+                        <section className="flex flex-col items-center justify-center h-full text-center space-y-4 sm:space-y-6 px-4">
+                          <section className="p-4 sm:p-6 bg-gradient-to-r from-blue-100 to-purple-100 dark:from-blue-900/20 dark:to-purple-900/20 rounded-full">
+                            <Bot className="w-8 h-8 sm:w-12 sm:h-12 text-blue-600" />
+                          </section>
+                          <section className="max-w-md">
+                            <h3 className="text-lg sm:text-xl font-semibold mb-2">
+                              Welcome to AI Chat
+                            </h3>
+                            <p className="text-muted-foreground text-sm sm:text-base">
+                              Start a conversation with our AI assistant. Ask
+                              questions, get help with coding, brainstorm ideas,
+                              or just have a friendly chat!
+                            </p>
+                          </section>
+                          <section className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 max-w-md w-full">
+                            {[
+                              "What can you help me with?",
+                              "Explain quantum computing",
+                              "Write a Python function",
+                              "Help me brainstorm ideas",
+                            ].map((suggestion, index) => (
+                              <Button
+                                key={index}
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setInput(suggestion)
+                                  setTimeout(adjustTextareaHeight, 0)
+                                }}
+                                className="justify-start h-auto p-2 sm:p-3 text-left whitespace-normal text-xs sm:text-sm"
+                              >
+                                {suggestion}
+                              </Button>
+                            ))}
+                          </section>
+                        </section>
+                      )}
+                    </>
+                  ) : (
+                    <section className="space-y-4 sm:space-y-6">
+                      {chatState.messages.map((message) => (
+                        <section
+                          key={message.id}
+                          className={cn(
+                            "flex space-x-2 sm:space-x-4",
+                            message.role === "user"
+                              ? "justify-end"
+                              : "justify-start"
+                          )}
+                        >
+                          {message.role === "assistant" && (
+                            <Avatar className="w-6 h-6 sm:w-8 sm:h-8 mt-1 flex-shrink-0">
+                              <AvatarFallback className="bg-gradient-to-r from-blue-500 to-purple-600">
+                                <Bot className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
+                              </AvatarFallback>
+                            </Avatar>
+                          )}
+
+                          <section
+                            className={cn(
+                              "max-w-[85%] sm:max-w-[75%] rounded-xl px-3 sm:px-4 py-2 sm:py-3 break-words group relative",
+                              message.role === "user"
+                                ? "bg-primary text-primary-foreground ml-auto"
+                                : "bg-muted hover:bg-muted/80 transition-colors"
+                            )}
+                          >
+                            <section className="whitespace-pre-wrap text-sm leading-relaxed">
+                              {message.content}
+                            </section>
+                            {message.isStreaming && (
+                              <section className="mt-2 sm:mt-3 flex items-center space-x-2">
+                                <Loading variant="dots" size="sm" />
+                                <span className="text-xs opacity-70">
+                                  AI is typing...
+                                </span>
+                              </section>
+                            )}
+
+                            {/* Message actions */}
+                            {!message.isStreaming && message.content && (
+                              <section className="flex items-center justify-between mt-2 border-t border-border/50">
+                                <span className="text-xs ">
+                                  {message.timestamp.toLocaleTimeString()}
+                                </span>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => copyMessage(message.content)}
+                                  className="h-6 sm:h-7 px-1 sm:px-2 text-xs "
+                                >
+                                  <Copy className="w-3 h-3 sm:mr-1" />
+                                  <span className="hidden sm:inline">Copy</span>
+                                </Button>
+                              </section>
+                            )}
+                          </section>
+
+                          {message.role === "user" && (
+                            <Avatar className="w-6 h-6 sm:w-8 sm:h-8 mt-1 flex-shrink-0">
+                              <AvatarImage
+                                src={
+                                  user?.image_url ??
+                                  "https://github.com/evilrabbit.png"
+                                }
+                                alt={user?.last_name}
+                              />
+                              <AvatarFallback className="bg-primary">
+                                <User className="w-3 h-3 sm:w-4 sm:h-4 text-primary-foreground" />
+                              </AvatarFallback>
+                            </Avatar>
+                          )}
+                        </section>
+                      ))}
+                      {/* Invisible section for scrolling to bottom */}
+                      <section ref={messagesEndRef} />
+                    </section>
+                  )}
+                </ScrollArea>
+              </CardContent>
+            </Card>
+
+            {/* Error Display */}
+            {chatState.error && (
+              <Card className="border-destructive bg-destructive/5">
+                <CardContent className="p-3 sm:p-4">
+                  <section className="flex items-center justify-between">
+                    <section className="flex items-center space-x-2 text-destructive">
+                      <span className="text-sm font-medium">
+                        Error: {chatState.error}
+                      </span>
+                    </section>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() =>
+                        setChatState((prev) => ({ ...prev, error: null }))
+                      }
+                    >
+                      Dismiss
+                    </Button>
+                  </section>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Input Area */}
+            <Card className="border-2 border-dashed border-muted-foreground/25 hover:border-muted-foreground/50 transition-colors">
+              <CardContent className="p-3 sm:p-4">
+                <section className="flex space-x-2 sm:space-x-3">
+                  <section className="flex-1 relative">
+                    <Textarea
+                      ref={inputRef}
+                      value={input}
+                      onChange={handleInputChange}
+                      onKeyUp={handleKeyPress}
+                      placeholder="Type your message..."
+                      disabled={chatState.isLoading}
+                      className="pr-8 sm:pr-12 min-h-[40px] sm:min-h-[44px] max-h-[120px] text-sm sm:text-base resize-none"
+                      maxLength={2000}
+                      rows={1}
+                    />
+                    {chatState.isLoading && (
+                      <section className="absolute right-2 sm:right-3 top-1/2 transform -translate-y-1/2">
+                        <Loading variant="spinner" size="sm" />
+                      </section>
+                    )}
+                    {available_ai_models?.length === 0 && (
+                      <section className="pt-4 flex items-center">
+                        <InfoIcon className="w-4 h-4 text-muted-foreground" />
+                        <span className="ml-2 text-xs text-muted-foreground">
+                          No AI models available. Please install a local AI
+                          model to start chatting.
+                        </span>
+                      </section>
+                    )}
+                  </section>
+                  <Button
+                    onClick={sendMessage}
+                    disabled={
+                      !input.trim() ||
+                      chatState.isLoading ||
+                      !selectedModel?.name ||
+                      available_ai_models?.length === 0
+                    }
+                    className="px-3 sm:px-6 h-10 sm:h-11"
+                    size="default"
+                  >
+                    <Send className="w-4 h-4 sm:mr-2" />
+                    <span className="hidden sm:inline">Send</span>
+                  </Button>
+                </section>
+                <section className="flex items-center justify-between mt-2 sm:mt-3 text-xs text-muted-foreground">
+                  <span className="hidden sm:inline">
+                    Press Enter to send • Shift+Enter for new line
+                  </span>
+                  <span className="sm:hidden">Enter to send</span>
+                  <span
+                    className={cn(
+                      "font-mono",
+                      input.length > 1800 && "text-orange-500",
+                      input.length > 1950 && "text-destructive"
+                    )}
+                  >
+                    {input.length}/2000
+                  </span>
+                </section>
+              </CardContent>
+            </Card>
+          </section>
+        </section>
+      </section>
+    </section>
+  )
 }

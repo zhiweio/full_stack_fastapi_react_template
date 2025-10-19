@@ -1,16 +1,16 @@
+import type { UIMessage } from "ai"
+import { cva, type VariantProps } from "class-variance-authority"
+import type { ComponentProps, HTMLAttributes } from "react"
 import {
   Avatar,
   AvatarFallback,
   AvatarImage,
-} from "@/components/ai-elements/avatar";
-import { cn } from "@/lib/utils";
-import type { UIMessage } from "ai";
-import { cva, type VariantProps } from "class-variance-authority";
-import type { ComponentProps, HTMLAttributes } from "react";
+} from "@/components/ai-elements/avatar"
+import { cn } from "@/lib/utils"
 
 export type MessageProps = HTMLAttributes<HTMLDivElement> & {
-  from: UIMessage["role"];
-};
+  from: UIMessage["role"]
+}
 
 export const Message = ({ className, from, ...props }: MessageProps) => (
   <div
@@ -21,7 +21,7 @@ export const Message = ({ className, from, ...props }: MessageProps) => (
     )}
     {...props}
   />
-);
+)
 
 const messageContentVariants = cva(
   "is-user:dark flex flex-col gap-2 overflow-hidden rounded-lg text-sm",
@@ -43,10 +43,10 @@ const messageContentVariants = cva(
       variant: "contained",
     },
   }
-);
+)
 
 export type MessageContentProps = HTMLAttributes<HTMLDivElement> &
-  VariantProps<typeof messageContentVariants>;
+  VariantProps<typeof messageContentVariants>
 
 export const MessageContent = ({
   children,
@@ -60,12 +60,12 @@ export const MessageContent = ({
   >
     {children}
   </div>
-);
+)
 
 export type MessageAvatarProps = ComponentProps<typeof Avatar> & {
-  src: string;
-  name?: string;
-};
+  src: string
+  name?: string
+}
 
 export const MessageAvatar = ({
   src,
@@ -77,4 +77,4 @@ export const MessageAvatar = ({
     <AvatarImage alt="" className="mt-0 mb-0" src={src} />
     <AvatarFallback>{name?.slice(0, 2) || "ME"}</AvatarFallback>
   </Avatar>
-);
+)

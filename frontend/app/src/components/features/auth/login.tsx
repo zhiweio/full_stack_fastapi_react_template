@@ -1,193 +1,198 @@
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { zodResolver } from "@hookform/resolvers/zod"
+import { Shield } from "lucide-react"
+import { useEffect, useState } from "react"
+import { useForm } from "react-hook-form"
+import { NavLink } from "react-router"
+import { z } from "zod"
+import { PasskeyLogin } from "@/components/features/auth/passkey-login"
+import { useAppConfig } from "@/components/providers/app-config-provider"
+import { useAuthContext } from "@/components/providers/auth-provider"
+import { Logo } from "@/components/shared/logo"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Button } from "@/components/ui/button"
 import {
-    Form,
-    FormControl,
-    FormField,
-    FormItem,
-    FormLabel,
-    FormMessage,
-} from "@/components/ui/form";
-import { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
-import { z } from "zod";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { NavLink } from "react-router";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Logo } from "@/components/shared/logo";
-import { useAppConfig } from "@/components/providers/app-config-provider";
-import { TenantSelection } from "../tenant/tenant-selection";
-import { useAuthContext } from "@/components/providers/auth-provider";
-import { PasskeyLogin } from "@/components/features/auth/passkey-login";
-import { Separator } from "@/components/ui/separator";
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
 import {
-    Shield,
-} from "lucide-react";
-import { MagicLinkLogin } from "./magic-link-login";
-
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form"
+import { Input } from "@/components/ui/input"
+import { Separator } from "@/components/ui/separator"
+import { TenantSelection } from "../tenant/tenant-selection"
+import { MagicLinkLogin } from "./magic-link-login"
 
 const loginSchema = z.object({
-    email: z.email({ message: "Invalid email address" }),
-    password: z.string()
-        .min(8, { message: "Password must be at least 8 characters" })
-        .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/, {
-            message: "Password must contain at least 1 lowercase letter, 1 uppercase letter, 1 number, and 1 symbol"
-        })
-});
+  email: z.email({ message: "Invalid email address" }),
+  password: z
+    .string()
+    .min(8, { message: "Password must be at least 8 characters" })
+    .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/, {
+      message:
+        "Password must contain at least 1 lowercase letter, 1 uppercase letter, 1 number, and 1 symbol",
+    }),
+})
 
-type LoginFormInputs = z.infer<typeof loginSchema>;
+type LoginFormInputs = z.infer<typeof loginSchema>
 
 export function Login() {
-    const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const { login } = useAuthContext();
-    const appConfig = useAppConfig();
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const { login } = useAuthContext()
+  const appConfig = useAppConfig()
 
-    const form = useForm<LoginFormInputs>({
-        resolver: zodResolver(loginSchema),
-        defaultValues: {
-            email: "",
-            password: "",
-        },
-    });
+  const form = useForm<LoginFormInputs>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: {
+      email: "",
+      password: "",
+    },
+  })
 
+  const onSubmit = async (data: LoginFormInputs) => {
+    setIsLoading(true)
+    setError(null)
 
-    const onSubmit = async (data: LoginFormInputs) => {
-        setIsLoading(true);
-        setError(null);
+    const formData = new FormData()
+    formData.append("email", data.email)
+    formData.append("password", data.password)
+    await login({
+      email: data.email,
+      password: data.password,
+    })
+      .catch(() => {
+        setError("Invalid email or password")
+      })
+      .finally(() => {
+        setIsLoading(false)
+      })
+  }
 
-        const formData = new FormData();
-        formData.append("email", data.email);
-        formData.append("password", data.password);
-        await login({
-            email: data.email,
-            password: data.password
-        }).catch(() => {
-            setError("Invalid email or password");
-        }).finally(() => {
-            setIsLoading(false);
-        });
+  useEffect(() => {
+    if (appConfig.current_tenant) {
+      appConfig.redirectToTenantDomain(appConfig.current_tenant)
+    }
+  }, [appConfig.current_tenant])
 
-    };
+  return (
+    <div className="flex flex-col items-center justify-center pt-10 pb-10">
+      {appConfig.shouldShowTenantSelection && <TenantSelection />}
+      <Card className="w-full max-w-md shadow-lg">
+        <CardHeader>
+          <CardTitle className="text-2xl font-bold text-center">
+            <Logo className="justify-center" showText={false} size="sm" />
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="email"
+                        placeholder="Enter your email"
+                        disabled={isLoading}
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="password"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Password</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="password"
+                        placeholder="Enter your password"
+                        disabled={isLoading}
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className="flex justify-between items-center mt-1 mb-4">
+                <div className="text-sm text-muted-foreground">
+                  Forgot your password?
+                </div>
+                <NavLink
+                  to="/forgot-password"
+                  className="text-sm text-primary underline hover:text-primary/80"
+                >
+                  Reset here
+                </NavLink>
+              </div>
+              <Button type="submit" className="w-full" disabled={isLoading}>
+                {isLoading ? "Signing in..." : "Login"}
+              </Button>
+            </form>
+          </Form>
 
-    useEffect(() => {
-        if (appConfig.current_tenant) {
-            appConfig.redirectToTenantDomain(appConfig.current_tenant);
-        }
-    }, [
-        appConfig.current_tenant
-    ])
+          {/* Other Login Options */}
+          <div className="space-y-2">
+            <div className="mt-4">
+              {/* Separator */}
+              <div className="relative mb-4">
+                <div className="absolute inset-0 flex items-center">
+                  <Separator className="w-full" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-background px-2 text-muted-foreground">
+                    Or continue with
+                  </span>
+                </div>
+              </div>
 
+              <PasskeyLogin />
+              <MagicLinkLogin />
+              {/* Security Notice */}
+              <div className="text-xs text-muted-foreground text-center mt-4 p-3 bg-muted/50 rounded-lg">
+                <Shield className="w-3 h-3 inline mr-1" />
+                All authentication methods are secured with industry-standard
+                encryption
+              </div>
+            </div>
+          </div>
 
+          <div className="mt-6 text-center text-sm text-muted-foreground border-t pt-4">
+            Don&apos;t have an account?{" "}
+            <NavLink
+              to="/register"
+              className="text-primary underline hover:text-primary/80"
+            >
+              Register
+            </NavLink>
+          </div>
 
-    return (
-        <div className="flex flex-col items-center justify-center pt-10 pb-10">
-            {appConfig.shouldShowTenantSelection && (
-                <TenantSelection />
+          <CardFooter className="p-0 mt-4">
+            {error && (
+              <Alert variant="destructive">
+                <AlertTitle>Error</AlertTitle>
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
             )}
-            <Card className="w-full max-w-md shadow-lg">
-                <CardHeader>
-                    <CardTitle className="text-2xl font-bold text-center">
-                        <Logo className="justify-center" showText={false} size="sm" />
-                    </CardTitle>
-
-                </CardHeader>
-                <CardContent>
-                    <Form {...form}>
-                        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
-                            <FormField
-                                control={form.control}
-                                name="email"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Email</FormLabel>
-                                        <FormControl>
-                                            <Input
-                                                type="email"
-                                                placeholder="Enter your email"
-                                                disabled={isLoading}
-                                                {...field}
-                                            />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                            <FormField
-                                control={form.control}
-                                name="password"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Password</FormLabel>
-                                        <FormControl>
-                                            <Input
-                                                type="password"
-                                                placeholder="Enter your password"
-                                                disabled={isLoading}
-                                                {...field}
-                                            />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                            <div className="flex justify-between items-center mt-1 mb-4">
-                                <div className="text-sm text-muted-foreground">Forgot your password?</div>
-                                <NavLink to="/forgot-password" className="text-sm text-primary underline hover:text-primary/80">Reset here</NavLink>
-                            </div>
-                            <Button type="submit" className="w-full" disabled={isLoading}>
-                                {isLoading ? "Signing in..." : "Login"}
-                            </Button>
-
-                        </form>
-                    </Form>
-
-                    {/* Other Login Options */}
-                    <div className="space-y-2">
-                        <div className="mt-4">
-                            {/* Separator */}
-                            <div className="relative mb-4">
-                                <div className="absolute inset-0 flex items-center">
-                                    <Separator className="w-full" />
-                                </div>
-                                <div className="relative flex justify-center text-xs uppercase">
-                                    <span className="bg-background px-2 text-muted-foreground">
-                                        Or continue with
-                                    </span>
-                                </div>
-                            </div>
-
-                            <PasskeyLogin />
-                            <MagicLinkLogin />
-                            {/* Security Notice */}
-                            <div className="text-xs text-muted-foreground text-center mt-4 p-3 bg-muted/50 rounded-lg">
-                                <Shield className="w-3 h-3 inline mr-1" />
-                                All authentication methods are secured with industry-standard encryption
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="mt-6 text-center text-sm text-muted-foreground border-t pt-4">
-                        Don&apos;t have an account?{' '}
-                        <NavLink to="/register" className="text-primary underline hover:text-primary/80">Register</NavLink>
-                    </div>
-
-
-                    <CardFooter className="p-0 mt-4">
-                        {error && (
-                            <Alert variant="destructive">
-                                <AlertTitle>Error</AlertTitle>
-                                <AlertDescription>{error}</AlertDescription>
-                            </Alert>
-                        )}
-                    </CardFooter>
-                </CardContent>
-            </Card>
-
-        </div>
-    )
-
-
-
+          </CardFooter>
+        </CardContent>
+      </Card>
+    </div>
+  )
 }

@@ -1,70 +1,82 @@
-import { AISessionByUserIdDto } from "@/api";
-import { getApiClient } from "@/lib/utils";
 import { createContext, useContext, useEffect, useState } from "react"
-import { useAuthContext } from "./auth-provider";
-import { toast } from "sonner";
+import { toast } from "sonner"
+import type { AISessionByUserIdDto } from "@/api"
+import { getApiClient } from "@/lib/utils"
+import { useAuthContext } from "./auth-provider"
 
 type AIChatProviderState = {
-    fetchAllSessions: () => Promise<void>;
-    sessions: AISessionByUserIdDto[];
-    onDeleteSession: (sessionId: string) => Promise<void>;
-    getAIChatNewSession: () => Promise<string>;
+  fetchAllSessions: () => Promise<void>
+  sessions: AISessionByUserIdDto[]
+  onDeleteSession: (sessionId: string) => Promise<void>
+  getAIChatNewSession: () => Promise<string>
 }
 
 const AIChatContext = createContext<AIChatProviderState>({
-    fetchAllSessions: async () => { },
-    sessions: [],
-    onDeleteSession: async () => { },
-    getAIChatNewSession: async () => { throw new Error("Not implemented"); }
+  fetchAllSessions: async () => {},
+  sessions: [],
+  onDeleteSession: async () => {},
+  getAIChatNewSession: async () => {
+    throw new Error("Not implemented")
+  },
 })
 
 interface AIChatProviderProps {
-    children: React.ReactNode;
+  children: React.ReactNode
 }
 
 export function AIChatProvider({ children }: AIChatProviderProps) {
-    const [sessions, setSessions] = useState<AISessionByUserIdDto[]>([]);
-    const { accessToken } = useAuthContext();
-    const apiClient = getApiClient(accessToken)
+  const [sessions, setSessions] = useState<AISessionByUserIdDto[]>([])
+  const { accessToken } = useAuthContext()
+  const apiClient = getApiClient(accessToken)
 
-    async function fetchAllSessions() {
-        const response = await apiClient.ai.getHistoryApiV1AiHistoryGet();
-        setSessions(response);
+  async function fetchAllSessions() {
+    const response = await apiClient.ai.getHistoryApiV1AiHistoryGet()
+    setSessions(response)
+  }
+
+  async function onDeleteSession(sessionId: string) {
+    await apiClient.ai.deleteSessionApiV1AiSessionsSessionIdDelete({
+      sessionId,
+    })
+    await fetchAllSessions()
+  }
+
+  async function getAIChatNewSession() {
+    try {
+      const response = await apiClient.ai.createNewSessionApiV1AiNewSessionGet()
+      return response.session_id
+    } catch (error) {
+      console.error("Failed to create new AI session:", error)
+      toast.error("Failed to create new AI session", {
+        richColors: true,
+        position: "top-center",
+      })
+      throw new Error("Failed to create new AI session")
     }
+  }
 
-    async function onDeleteSession(sessionId: string) {
-        await apiClient.ai.deleteSessionApiV1AiSessionsSessionIdDelete({
-            sessionId
-        });
-        await fetchAllSessions();
-    }
+  useEffect(() => {
+    fetchAllSessions()
+  }, [accessToken])
 
-    async function getAIChatNewSession() {
-        try {
-            const response = await apiClient.ai.createNewSessionApiV1AiNewSessionGet();
-            return response.session_id;
-        } catch (error) {
-            console.error("Failed to create new AI session:", error);
-            toast.error("Failed to create new AI session", { richColors: true, position: "top-center" });
-            throw new Error("Failed to create new AI session");
-        }
-    }
-
-    useEffect(() => {
-        fetchAllSessions();
-    }, [accessToken])
-
-    return (
-        <AIChatContext.Provider value={{ fetchAllSessions, sessions, onDeleteSession, getAIChatNewSession }}>
-            {children}
-        </AIChatContext.Provider>
-    )
+  return (
+    <AIChatContext.Provider
+      value={{
+        fetchAllSessions,
+        sessions,
+        onDeleteSession,
+        getAIChatNewSession,
+      }}
+    >
+      {children}
+    </AIChatContext.Provider>
+  )
 }
 
 export function useAIChat() {
-    const context = useContext(AIChatContext);
-    if (!context) {
-        throw new Error("useAIChat must be used within an AIChatProvider");
-    }
-    return context;
+  const context = useContext(AIChatContext)
+  if (!context) {
+    throw new Error("useAIChat must be used within an AIChatProvider")
+  }
+  return context
 }

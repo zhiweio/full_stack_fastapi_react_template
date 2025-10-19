@@ -1,6 +1,6 @@
-import { ApiClient, type TenantDto } from "@/api"
-import { clsx, type ClassValue } from "clsx"
+import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
+import { ApiClient, type TenantDto } from "@/api"
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -8,52 +8,46 @@ export function cn(...inputs: ClassValue[]) {
 
 export function setTenant(tenant: TenantDto | null) {
   if (!tenant) {
-    localStorage.removeItem("_tenant");
-    window.dispatchEvent(new Event("tenant_removed"));
+    localStorage.removeItem("_tenant")
+    window.dispatchEvent(new Event("tenant_removed"))
 
-    return;
+    return
   }
-  localStorage.setItem("_tenant", JSON.stringify(tenant));
-  window.dispatchEvent(new Event("tenant_set"));
-
+  localStorage.setItem("_tenant", JSON.stringify(tenant))
+  window.dispatchEvent(new Event("tenant_set"))
 }
 
 export function getTenant(): TenantDto | null {
-  const tenant = localStorage.getItem("_tenant");
-  return tenant ? JSON.parse(tenant) : null;
+  const tenant = localStorage.getItem("_tenant")
+  return tenant ? JSON.parse(tenant) : null
 }
-
-
 
 export function userProfileImageUrl(url: string | null | undefined) {
-  if (!url) return "https://github.com/evilrabbit.png";
-  return url;
+  if (!url) return "https://github.com/evilrabbit.png"
+  return url
 }
-
 
 export function getApiClient(accessToken?: string) {
   // console.log("Getting API client with access token:", accessToken);
-  const tenant = getTenant();
+  const tenant = getTenant()
   if (!accessToken) {
     if (tenant) {
       return new ApiClient({
         HEADERS: {
-          "X-Tenant-ID": tenant.id!
+          "X-Tenant-ID": tenant.id!,
         },
         WITH_CREDENTIALS: true,
       })
     }
     return new ApiClient({
       WITH_CREDENTIALS: true,
-    });
+    })
   }
   return new ApiClient({
     HEADERS: {
       Authorization: `Bearer ${accessToken}`,
-      ...tenant?.id && { "X-Tenant-ID": tenant.id }
+      ...(tenant?.id && { "X-Tenant-ID": tenant.id }),
     },
-    WITH_CREDENTIALS: true
-  });
+    WITH_CREDENTIALS: true,
+  })
 }
-
-

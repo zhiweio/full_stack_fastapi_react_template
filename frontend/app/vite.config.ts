@@ -1,7 +1,7 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
 import tailwindcss from "@tailwindcss/vite"
+import react from "@vitejs/plugin-react"
 import path from "path"
+import { defineConfig } from "vite"
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -13,14 +13,18 @@ export default defineConfig({
   },
   server: {
     port: 3000,
-    host: '0.0.0.0',
+    host: "0.0.0.0",
     proxy: {
-      '/api': {
-        target: 'http://localhost:8000',
-      }
-
+      "/api": {
+        target: "http://localhost:8000",
+      },
     },
-    allowedHosts: ['demo.dev.xyz', 'netflix.demo.dev.xyz', 'fsrapp.netflix.com', 'localhost']
+    allowedHosts: [
+      "demo.dev.xyz",
+      "netflix.demo.dev.xyz",
+      "fsrapp.netflix.com",
+      "localhost",
+    ],
   },
   build: {
     outDir: "../../backend/api/ui",

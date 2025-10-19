@@ -1,6 +1,6 @@
-import * as React from "react"
 import * as DialogPrimitive from "@radix-ui/react-dialog"
 import { XIcon } from "lucide-react"
+import type * as React from "react"
 
 import { cn } from "@/lib/utils"
 
@@ -51,14 +51,16 @@ function DialogContent({
   isFullBlack = false,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
-  showCloseButton?: boolean,
+  showCloseButton?: boolean
   isFullBlack?: boolean
 }) {
   return (
     <DialogPortal data-slot="dialog-portal">
-      <DialogOverlay className={cn({
-        "bg-black": isFullBlack
-      })} />
+      <DialogOverlay
+        className={cn({
+          "bg-black": isFullBlack,
+        })}
+      />
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(

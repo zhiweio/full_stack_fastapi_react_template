@@ -1,114 +1,127 @@
-import { useAuthContext } from "@/components/providers/auth-provider";
-import { UsersType, useUsers } from "@/components/providers/users-provider";
-import AdvanceTable from "@/components/shared/advance-table";
-import { IResponseData } from "@/components/shared/iresponse-data.inteface";
-import { ActionOption, TableActions } from "@/components/shared/table-actions";
-import { userProfileImageUrl } from "@/lib/utils";
-import { createColumnHelper } from "@tanstack/react-table";
+import { createColumnHelper } from "@tanstack/react-table"
+import { useAuthContext } from "@/components/providers/auth-provider"
+import { type UsersType, useUsers } from "@/components/providers/users-provider"
+import AdvanceTable from "@/components/shared/advance-table"
+import type { IResponseData } from "@/components/shared/iresponse-data.inteface"
+import {
+  type ActionOption,
+  TableActions,
+} from "@/components/shared/table-actions"
+import { userProfileImageUrl } from "@/lib/utils"
 
-
-
-const columHelper = createColumnHelper<UsersType>();
+const columHelper = createColumnHelper<UsersType>()
 const columns = [
-    columHelper.accessor("id", {
-        header: "Actions",
-        cell: (c) => {
-            const tableId = c.row.original.id
+  columHelper.accessor("id", {
+    header: "Actions",
+    cell: (c) => {
+      const tableId = c.row.original.id
 
-            const { onSelectUser } = useUsers()
-            const { can, user } = useAuthContext()
+      const { onSelectUser } = useUsers()
+      const { can, user } = useAuthContext()
 
-            const isUserSelfUpdate = can("user:self_read_and_write_only");
-            const isAdmin = can("full:access");
-            const shouldAllowUserActions = isAdmin || isUserSelfUpdate;
-            const shouldAllowDeleteAction = can("user:delete_only") || isAdmin && user?.id !== tableId;
-            const canUpdateRoles = can("role:read_and_write_only") || isAdmin && user?.id !== tableId;
+      const isUserSelfUpdate = can("user:self_read_and_write_only")
+      const isAdmin = can("full:access")
+      const shouldAllowUserActions = isAdmin || isUserSelfUpdate
+      const shouldAllowDeleteAction =
+        can("user:delete_only") || (isAdmin && user?.id !== tableId)
+      const canUpdateRoles =
+        can("role:read_and_write_only") || (isAdmin && user?.id !== tableId)
 
+      const actionOptions: ActionOption<typeof c.row.original> = {
+        label: "Resend Activation Email",
+        data: c.row.original,
+        onClick: (data) =>
+          onSelectUser({
+            type: "resend_email",
+            user: data,
+          }),
+        disabled: shouldAllowUserActions,
+      }
 
-            const actionOptions: ActionOption<typeof c.row.original> = {
-                label: "Resend Activation Email",
-                data: c.row.original,
-                onClick: (data) => onSelectUser({
-                    type: 'resend_email',
-                    user: data
-                }),
-                disabled: shouldAllowUserActions
-            }
+      const baseOptions: ActionOption<typeof c.row.original>[] = [
+        {
+          label: "Edit",
+          data: c.row.original,
+          onClick: (data) =>
+            onSelectUser({
+              type: "edit",
+              user: data,
+            }),
+          disabled: shouldAllowUserActions,
+        },
+        {
+          label: "Delete",
+          data: c.row.original,
+          onClick: (data) =>
+            onSelectUser({
+              type: "delete",
+              user: data,
+            }),
+          disabled: shouldAllowDeleteAction,
+        },
+        {
+          label: "Manage Roles",
+          data: c.row.original,
+          onClick: (data) =>
+            onSelectUser({
+              type: "manage_roles",
+              user: data,
+            }),
+          disabled: canUpdateRoles,
+        },
+      ]
 
-            const baseOptions: ActionOption<typeof c.row.original>[] = [
-                {
-                    label: "Edit",
-                    data: c.row.original,
-                    onClick: (data) => onSelectUser({
-                        type: 'edit',
-                        user: data
-                    }),
-                    disabled: shouldAllowUserActions
-                },
-                {
-                    label: "Delete",
-                    data: c.row.original,
-                    onClick: (data) => onSelectUser({
-                        type: 'delete',
-                        user: data
-                    }),
-                    disabled: shouldAllowDeleteAction
-                },
-                {
-                    label: "Manage Roles",
-                    data: c.row.original,
-                    onClick: (data) => onSelectUser({
-                        type: 'manage_roles',
-                        user: data
-                    }),
-                    disabled: canUpdateRoles
-                }
-            ];
+      // Add "Resend Activation Email" option only for inactive users
+      const options = !c.row.original.is_active
+        ? [...baseOptions, actionOptions]
+        : baseOptions
 
-            // Add "Resend Activation Email" option only for inactive users
-            const options = !c.row.original.is_active
-                ? [...baseOptions, actionOptions]
-                : baseOptions;
-
-            return (
-                <TableActions<typeof c.row.original>
-                    options={options}
-                    resource="user"
-                />
-            )
-        }
-    }),
-    columHelper.accessor("image_url", {
-        header: "Image",
-        cell: (c) => {
-            const fullName = c.row.original.first_name + ' ' + c.row.original.last_name;
-            return (
-                <img src={userProfileImageUrl(c.row.original.image_url)} alt={fullName} className="w-10 h-10 rounded-full" />
-            )
-        }
-    }),
-    columHelper.accessor("first_name", {
-        header: "First Name",
-    }),
-    columHelper.accessor("last_name", {
-        header: "Last Name",
-    }),
-    columHelper.accessor("email", {
-        header: "Email",
-    }),
-    columHelper.accessor("is_active", {
-        header: "Active",
-    }),
-];
-
-
+      return (
+        <TableActions<typeof c.row.original>
+          options={options}
+          resource="user"
+        />
+      )
+    },
+  }),
+  columHelper.accessor("image_url", {
+    header: "Image",
+    cell: (c) => {
+      const fullName =
+        c.row.original.first_name + " " + c.row.original.last_name
+      return (
+        <img
+          src={userProfileImageUrl(c.row.original.image_url)}
+          alt={fullName}
+          className="w-10 h-10 rounded-full"
+        />
+      )
+    },
+  }),
+  columHelper.accessor("first_name", {
+    header: "First Name",
+  }),
+  columHelper.accessor("last_name", {
+    header: "Last Name",
+  }),
+  columHelper.accessor("email", {
+    header: "Email",
+  }),
+  columHelper.accessor("is_active", {
+    header: "Active",
+  }),
+]
 
 interface UserTableProps {
-    userResponse: IResponseData<UsersType>;
-    loading?: boolean;
+  userResponse: IResponseData<UsersType>
+  loading?: boolean
 }
 export function UserTable({ userResponse, loading }: UserTableProps) {
-    return (
-        <AdvanceTable<UsersType> data={userResponse} columns={columns} loading={loading} />
-    );
+  return (
+    <AdvanceTable<UsersType>
+      data={userResponse}
+      columns={columns}
+      loading={loading}
+    />
+  )
 }
