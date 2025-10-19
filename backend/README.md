@@ -140,7 +140,7 @@ api/
 - **Storage**: Azure Blob Storage, AWS S3 compatible
 - **Email**: FastAPI-Mail with async SMTP
 - **Security**: Passlib for password hashing
-- **Dependency Injection**: Punq container
+- **Dependency Injection**: FastAPI dependencies
 - **Testing**: Pytest with async support
 
 
