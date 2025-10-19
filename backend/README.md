@@ -2,10 +2,10 @@
 
 [![Python](https://img.shields.io/badge/Python-3.13+-blue.svg)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.116+-green.svg)](https://fastapi.tiangolo.com)
-[![MongoDB](https://img.shields.io/badge/MongoDB-Latest-green.svg)](https://mongodb.com)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Latest-blue.svg)](https://postgresql.org)
 [![Docker](https://img.shields.io/badge/Docker-Ready-blue.svg)](https://docker.com)
 
-A production-ready FastAPI backend API built with Clean Architecture principles, featuring multi-tenancy, comprehensive user management, AI integration, and cloud storage support.
+A production-ready FastAPI backend API built with Clean Architecture principles, featuring multi-tenancy, comprehensive user management, AI integration, and cloud storage support. Uses PostgreSQL with SQLModel for robust data persistence.
 
 ## 🚀 Quick Start
 
@@ -16,7 +16,7 @@ A production-ready FastAPI backend API built with Clean Architecture principles,
 docker run -d \
   --name fastapi-backend \
   -p 8000:8000 \
-  -e MONGO_URI=mongodb://your-mongo-host:27017 \
+  -e DATABASE_URL=postgresql+asyncpg://postgres:password@your-db-host:5432/your_database \
   -e JWT_SECRET=your-secret-key \
   your-registry/fastapi-backend:latest
 
@@ -28,8 +28,7 @@ curl http://localhost:8000/health
 
 ```bash
 # Required Environment Variables
-MONGO_URI=mongodb://localhost:27017
-MONGO_DB_NAME=your_database
+DATABASE_URL=postgresql+asyncpg://postgres:password@localhost:5432/your_database
 JWT_SECRET=your-jwt-secret-key
 REFRESH_TOKEN_SECRET=your-refresh-secret-key
 
@@ -133,7 +132,7 @@ api/
 ### Technology Stack
 
 - **Framework**: FastAPI 0.116+ with Pydantic v2
-- **Database**: MongoDB with Beanie ODM for async operations
+- **Database**: PostgreSQL with SQLModel for async operations
 - **Cache**: Redis for session storage and caching
 - **Background Tasks**: Celery with Redis broker
 - **Authentication**: JWT with PyJWT
@@ -149,9 +148,8 @@ api/
 
 ### Environment Variables
 ```bash
-  # MongoDB settings
-  MONGO_URI=mongodb://127.0.0.1:27012
-  MONGO_DB_NAME=full_stack_fastapi_react_template
+  # PostgreSQL settings
+  DATABASE_URL=postgresql+asyncpg://postgres:password@127.0.0.1:5432/full_stack_fastapi_react_template
 
   # JWT settings
   JWT_SECRET=your_jwt_secret_key

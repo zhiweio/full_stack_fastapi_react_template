@@ -2,51 +2,50 @@ from typing import Optional
 from uuid import UUID
 from sqlmodel import select
 from sqlalchemy import func
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.common.base_repository import BaseRepository
 from api.common.utils import get_logger
 from api.domain.dtos.role_dto import CreateRoleDto, RoleListDto, UpdateRoleDto
 from api.domain.entities.role import Role
-from api.infrastructure.persistence.database import db
 
 logger = get_logger(__name__)
 
 
 class RoleRepository(BaseRepository[Role]):
-    def __init__(self):
-        super().__init__(Role)
+    def __init__(self, session: AsyncSession):
+        super().__init__(Role, session)
 
     async def list(
         self, skip: int = 0, limit: int = 10, tenant_id: UUID = None
     ) -> RoleListDto:
         """获取角色列表"""
-        async with db.get_session() as session:
-            # 构建查询条件
-            statement = select(Role)
-            if tenant_id:
-                statement = statement.where(Role.tenant_id == tenant_id)
+        # 构建查询条件
+        statement = select(Role)
+        if tenant_id:
+            statement = statement.where(Role.tenant_id == tenant_id)
 
-            # 获取总数
-            count_statement = select(func.count(Role.id))
-            if tenant_id:
-                count_statement = count_statement.where(Role.tenant_id == tenant_id)
+        # 获取总数
+        count_statement = select(func.count(Role.id))
+        if tenant_id:
+            count_statement = count_statement.where(Role.tenant_id == tenant_id)
 
-            total_result = await session.execute(count_statement)
-            total = total_result.scalar()
+        total_result = await self.session.execute(count_statement)
+        total = total_result.scalar()
 
-            # 获取分页数据
-            statement = statement.offset(skip).limit(limit)
-            result = await session.execute(statement)
-            roles = result.scalars().all()
+        # 获取分页数据
+        statement = statement.offset(skip).limit(limit)
+        result = await self.session.execute(statement)
+        roles = result.scalars().all()
 
-            return RoleListDto(
-                roles=[role.to_serializable_dict() for role in roles],
-                skip=skip,
-                limit=limit,
-                total=total,
-                hasPrevious=skip > 0,
-                hasNext=skip + limit < total,
-            )
+        return RoleListDto(
+            roles=[role.to_serializable_dict() for role in roles],
+            skip=skip,
+            limit=limit,
+            total=total,
+            hasPrevious=skip > 0,
+            hasNext=skip + limit < total,
+        )
 
     async def create(self, data: CreateRoleDto) -> UUID | None:
         """创建角色"""

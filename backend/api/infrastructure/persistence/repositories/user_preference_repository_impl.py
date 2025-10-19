@@ -1,16 +1,17 @@
-from typing import Any, Optional
-from api.common.utils import validate_uuid
+from typing import Optional, Any
+from uuid import UUID
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.common.base_repository import BaseRepository
-from api.common.utils import get_logger
+from api.common.utils import get_logger, validate_uuid
 from api.domain.entities.user_preference import UserPreference
 
 logger = get_logger(__name__)
 
 
 class UserPreferenceRepository(BaseRepository[UserPreference]):
-    def __init__(self):
-        super().__init__(UserPreference)
+    def __init__(self, session: AsyncSession):
+        super().__init__(UserPreference, session)
 
     async def get_preferences(self, user_id: str) -> Optional[UserPreference]:
         """获取用户偏好设置"""

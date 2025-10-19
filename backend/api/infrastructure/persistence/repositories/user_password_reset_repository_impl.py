@@ -2,6 +2,7 @@ from typing import Optional
 from api.common.utils import get_utc_now, get_logger, validate_uuid
 
 from uuid import uuid4
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.common.base_repository import BaseRepository
 from api.domain.entities.user_password_reset import UserPasswordReset
@@ -10,8 +11,8 @@ logger = get_logger(__name__)
 
 
 class UserPasswordResetRepository(BaseRepository[UserPasswordReset]):
-    def __init__(self):
-        super().__init__(UserPasswordReset)
+    def __init__(self, session: AsyncSession):
+        super().__init__(UserPasswordReset, session)
 
     async def set_password_reset(
         self, user_id: str, first_name: str, tenant_id: str | None = None

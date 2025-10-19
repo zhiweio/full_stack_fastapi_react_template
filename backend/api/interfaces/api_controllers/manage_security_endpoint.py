@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 
-from api.core.container import get_passkey_service
+from api.core.dependencies import PasskeyServiceDep
 from api.domain.dtos.passkey_dto import RegisteredPasskeyCredentialsDto
 from api.infrastructure.security.current_user import CurrentUser
 from api.infrastructure.security.passkey_service import PasskeyService
@@ -15,7 +15,7 @@ router.tags = ["Manage Security"]
 )
 async def get_registered_passkeys(
     current_user: CurrentUser,
-    passkey_service: PasskeyService = Depends(get_passkey_service),
+    passkey_service: PasskeyServiceDep,
 ):
     """
     Endpoint to retrieve registered passkeys for the current user.
@@ -29,7 +29,7 @@ async def get_registered_passkeys(
 async def delete_registered_passkey(
     credential_id: str,
     current_user: CurrentUser,
-    passkey_service: PasskeyService = Depends(get_passkey_service),
+    passkey_service: PasskeyServiceDep,
 ):
     """
     Endpoint to delete a registered passkey for the current user.

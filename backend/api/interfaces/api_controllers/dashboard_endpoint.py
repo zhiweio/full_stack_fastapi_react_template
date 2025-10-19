@@ -2,7 +2,7 @@ from typing import Literal
 
 from fastapi import Depends, Query, APIRouter
 from api.common.utils import get_date_range
-from api.core.container import get_user_service
+from api.core.dependencies import UserServiceDep
 from api.domain.dtos.dashboard_dto import DashboardMetricsDto
 from api.infrastructure.security.current_user import CurrentUser
 from api.usecases.user_service import UserService
@@ -14,9 +14,9 @@ router.tags = ["Dashboard"]
 
 @router.get("/", response_model=DashboardMetricsDto)
 async def get_dashboard_metrics(
+    user_service: UserServiceDep,
     current_user: CurrentUser,
     filter: Literal["today", "this_week", "last_3_months", "all"] = Query("all"),
-    user_service: UserService = Depends(get_user_service),
 ):
     # Simulate fetching data based on the filter
     start_date, end_date, group_format = get_date_range(filter)

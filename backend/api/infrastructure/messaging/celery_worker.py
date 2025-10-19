@@ -4,7 +4,7 @@ from celery import Celery
 
 from api.common.dtos.worker_dto import WorkerPayloadDto
 from api.common.utils import get_host_main_domain_name, get_logger
-from api.core.container import (
+from api.core.dependencies import (
     get_dns_resolver,
     get_role_service,
     get_tenant_service,
@@ -18,17 +18,15 @@ from api.domain.dtos.user_dto import CreateUserDto, UserDto
 from api.domain.entities.user import User
 from api.infrastructure.externals.dns_resolver import DnsResolver
 
-# from api.infrastructure.persistence.mongodb import Database, models
 from api.infrastructure.background.post_tenant_creation_task_service import (
     PostTenantCreationTaskService,
 )
+from api.infrastructure.persistence.database import db, get_db_session
 from api.usecases.coolify_app_service import CoolifyAppService
 from api.usecases.tenant_service import TenantService
 
 broker_url = os.getenv("CELERY_BROKER_URL")
 backend_url = os.getenv("CELERY_RESULT_BACKEND")
-mongo_uri = os.getenv("MONGO_URI")
-mongo_db_default = os.getenv("MONGO_DB_NAME")
 coolify_enabled = os.getenv("COOLIFY_ENABLED", "false").lower() == "true"
 logger = get_logger(__name__)
 
@@ -56,11 +54,10 @@ def handle_tenant_dns_update(payload: str):
     asyncio.run(_handle_tenant_dns_update_async(payload))
 
 
-# async def _get_current_tenant_db(tenant_id: str) -> Database:
-#     db_name = f"tenant_{tenant_id}"
-#     db = Database(uri=mongo_uri, models=models)
-#     await db.init_db(db_name=db_name, is_tenant=True)
-#     return db
+async def _get_current_tenant_db(tenant_id: str):
+    """Initialize database connection for tenant"""
+    await db.init_db(tenant_id=tenant_id)
+    return db
 
 
 async def _handle_post_tenant_creation_async(payload: str):
@@ -127,8 +124,7 @@ async def _handle_tenant_dns_update_async(payload: str):
     logger.info(f"Handling task with label: {worker_payload.label}")
     if worker_payload.label == "update-tenant-dns":
         hostname = worker_payload.data["custom_domain"]
-        db = Database(uri=mongo_uri, models=models)
-        await db.init_db(db_name=mongo_db_default, is_tenant=False)
+        await db.init_db()  # Use default database
         dns_service: DnsResolver = get_dns_resolver()
         try:
             result = await dns_service.resolve(
@@ -157,7 +153,6 @@ async def _handle_tenant_dns_update_async(payload: str):
                     f"DNS for {hostname} is NOT pointing to {get_host_main_domain_name()}."
                 )
                 raise Exception("DNS resolution did not return expected target.")
-            await db.close()
         except Exception as e:
             logger.error(f"Error occurred while checking DNS for {hostname}: {e}")
             await _update_tenant_custom_domain_status(
@@ -168,7 +163,7 @@ async def _handle_tenant_dns_update_async(payload: str):
 async def _notify_dns_status(
     tenant_id: str, user_id: str, is_success: bool, message: str, hostname: str
 ):
-    db = await _get_current_tenant_db(tenant_id=tenant_id)
+    await _get_current_tenant_db(tenant_id=tenant_id)
     user_service = get_user_service()
     admin_user: User = await user_service.get_user_by_id(user_id=user_id)
     admin_user_dto = admin_user.to_serializable_dict()
@@ -179,19 +174,21 @@ async def _notify_dns_status(
         is_success=is_success,
         message=message,
     )
-    await db.close()
 
 
 async def _update_tenant_custom_domain_status(tenant_id: str, status: str):
     logger.info(f"Updating tenant {tenant_id} custom_domain_status to {status}")
-    db = Database(uri=mongo_uri, models=models)
-    await db.init_db(db_name=mongo_db_default, is_tenant=False)
+    await db.init_db()  # Use default database
     tenant_service: TenantService = get_tenant_service()
 
     tenant = await tenant_service.get_tenant_by_id(tenant_id=tenant_id)
     tenant.custom_domain_status = status
-    await tenant.save()
-    await db.close()
+
+    # Use SQLModel save method
+    async for session in get_db_session():
+        session.add(tenant)
+        await session.commit()
+        await session.refresh(tenant)
 
     if status == "active":
         await _update_coolify_domain(

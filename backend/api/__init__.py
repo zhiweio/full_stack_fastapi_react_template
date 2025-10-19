@@ -12,7 +12,6 @@ from api.common.exceptions import (
     UnauthorizedException,
 )
 from api.common.utils import get_logger, is_tenancy_enabled
-from api.core.container import container
 from api.core.exceptions import InvalidSubdomainException, TenantNotFoundException
 from api.infrastructure.persistence.database import db
 from api.interfaces.middlewares.known_domain_middleware import KnownDomainMiddleware

@@ -258,7 +258,7 @@ class AuthService:
         await self.user_service.update_user_password(
             user_id=user_id, new_password=new_password
         )
-        await reset_data.delete()
+        await self.user_service.user_password_reset_repository.delete(reset_data.id)
         logger.info(
             f"Password reset successful for user {user_id}. Cleared reset data."
         )
@@ -327,7 +327,7 @@ class AuthService:
 
         user.is_active = True
         user.activated_at = get_utc_now()
-        await user.save()
+        await self.user_service.user_repository.update(user.id, user.model_dump())
         logger.info(f"User {user.id} ({user.email}) has been activated.")
 
     async def change_email_request(
@@ -393,7 +393,7 @@ class AuthService:
 
         user.email = payload.email
         logger.info(f"User {user.id} changed email to {payload.email}.")
-        await user.save()
+        await self.user_service.user_repository.update(user.id, user.model_dump())
         html = notify_email_change_template_html(user_first_name=user.first_name)
         await self.email_service.send_email(
             to=user.email,

@@ -51,8 +51,8 @@ def decode_base64url(data: str) -> bytes:
 class PasskeyService:
     def __init__(
         self,
-        user_passkey_repo: UserPasskeyRepository = UserPasskeyRepository,
-        challenges_repo: UserPasskeyChallengesRepository = UserPasskeyChallengesRepository,
+        user_passkey_repo: UserPasskeyRepository,
+        challenges_repo: UserPasskeyChallengesRepository,
     ):
         logger.info("PasskeyService initialized.")
         self.user_passkey_repo: UserPasskeyRepository = user_passkey_repo
@@ -70,9 +70,9 @@ class PasskeyService:
             )
 
         from api.usecases.tenant_service import TenantService
-        from api.core.container import get_tenant_service
+        from api.core.container import get_container
 
-        tenant_service: TenantService = get_tenant_service()
+        tenant_service: TenantService = get_container().get_tenant_service()
 
         if tenant_id is not None:
             tenant = await tenant_service.get_tenant_by_id(tenant_id=str(tenant_id))
@@ -154,7 +154,7 @@ class PasskeyService:
         )
         user_passkey.credentials.append(cred_data)
         user_passkey.credentials = user_passkey.credentials.copy()
-        await user_passkey.save()
+        await self.user_passkey_repo.update(user_passkey.id, user_passkey.model_dump())
         await self.challenges_repo.delete_challenge(email=email, type="registration")
         return True
 
@@ -244,7 +244,7 @@ class PasskeyService:
                 cred.last_used_at = get_utc_now().isoformat()
                 break
 
-        await user_passkey.save()
+        await self.user_passkey_repo.update(user_passkey.id, user_passkey.model_dump())
         await self.challenges_repo.delete_challenge(email=email, type="authentication")
         logger.info(f"Passkey Authentication verified for user {email}.")
         return True
@@ -285,7 +285,7 @@ class PasskeyService:
         if len(user_passkey.credentials) == original_count:
             raise PassKeyException("Credential ID not found.")
 
-        await user_passkey.save()
+        await self.user_passkey_repo.update(user_passkey.id, user_passkey.model_dump())
         logger.info(
             f"Deleted passkey with credential ID {credential_id} for user {email}."
         )

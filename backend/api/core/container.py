@@ -1,194 +1,93 @@
-import punq
-from sqlalchemy.ext.asyncio import AsyncSession
-from api.domain.interfaces.email_service import IEmailService
-from api.infrastructure.externals.coolify_app import CoolifyApp
-from api.infrastructure.externals.dns_resolver import DnsResolver
-from api.infrastructure.externals.smtp_email import SmtpEmail
-from api.infrastructure.persistence.repositories.chat_history_ai_repository_impl import (
-    ChatHistoryAIRepository,
-)
-from api.infrastructure.persistence.repositories.chat_session_ai_repository_impl import (
-    ChatSessionAIRepository,
-)
-from api.infrastructure.persistence.repositories.role_repository_impl import (
-    RoleRepository,
-)
-from api.infrastructure.persistence.repositories.storage_settings_repository_impl import (
-    StorageSettingsRepository,
-)
-from api.infrastructure.persistence.repositories.tenant_repository_impl import (
-    TenantRepository,
-)
-from api.infrastructure.persistence.repositories.user_magic_link_repository_impl import (
-    UserMagicLinkRepository,
-)
-from api.infrastructure.persistence.repositories.user_passkey_repository_impl import (
-    UserPasskeyChallengesRepository,
-    UserPasskeyRepository,
-)
-from api.infrastructure.persistence.repositories.user_password_reset_repository_impl import (
-    UserPasswordResetRepository,
-)
-from api.infrastructure.persistence.repositories.user_preference_repository_impl import (
-    UserPreferenceRepository,
-)
-from api.infrastructure.persistence.repositories.user_repository_impl import (
-    UserRepository,
-)
-from api.infrastructure.security.jwt_token_service import JwtTokenService
-from api.infrastructure.security.passkey_service import PasskeyService
-from api.usecases.coolify_app_service import CoolifyAppService
-from api.usecases.local_ai_service import LocalAIService
-from api.usecases.auth_service import AuthService
-from api.usecases.file_service import FileService
-from api.usecases.magic_link_service import EmailMagicLinkService
-from api.usecases.role_service import RoleService
-from api.usecases.storage_settings_service import StorageSettingsService
-from api.usecases.user_preference_service import UserPreferenceService
-from api.usecases.user_service import UserService
-from api.usecases.tenant_service import TenantService
-from api.infrastructure.persistence.database import Database, db
+"""
+简化的全局依赖注入容器
+支持在非 FastAPI 路由函数中获取服务实例
+"""
+
+from typing import Optional, Dict, Any
+from contextlib import asynccontextmanager
+from functools import lru_cache
 
 
-container = punq.Container()
+class DependencyContainer:
+    """简化的依赖注入容器"""
 
-# Register database
-container.register(Database, instance=db)
+    def __init__(self):
+        self._instances: Dict[str, Any] = {}
 
-# Register security components
+    @asynccontextmanager
+    async def get_session(self):
+        """获取数据库会话的上下文管理器"""
+        # 延迟导入避免循环依赖
+        from api.infrastructure.persistence.database import get_db_session
 
-## Smtp email Service
-container.register(IEmailService, SmtpEmail, scope=punq.Scope.singleton)
+        async with get_db_session() as session:
+            yield session
 
-## JWT Token Service
-container.register(JwtTokenService, scope=punq.Scope.singleton)
+    async def get_tenant_service(self):
+        """获取租户服务实例"""
+        # 延迟导入避免循环依赖
+        from api.infrastructure.persistence.repositories.tenant_repository_impl import (
+            TenantRepository,
+        )
+        from api.usecases.tenant_service import TenantService
 
-## DNS Resolver
-container.register(DnsResolver, scope=punq.Scope.singleton)
+        async with self.get_session() as session:
+            tenant_repo = TenantRepository(session)
+            return TenantService(tenant_repo)
 
-## Coolify Integration
-container.register(CoolifyApp, scope=punq.Scope.singleton)
-container.register(CoolifyAppService, scope=punq.Scope.singleton)
+    async def get_user_service(self):
+        """获取用户服务实例"""
+        # 延迟导入避免循环依赖
+        from api.infrastructure.persistence.repositories.user_repository_impl import (
+            UserRepository,
+        )
+        from api.infrastructure.persistence.repositories.user_password_reset_repository_impl import (
+            UserPasswordResetRepository,
+        )
+        from api.usecases.user_service import UserService
 
+        async with self.get_session() as session:
+            user_repo = UserRepository(session)
+            user_password_reset_repo = UserPasswordResetRepository(session)
+            return UserService(user_repo, user_password_reset_repo)
 
-# Register repositories and services
+    async def get_role_service(self):
+        """获取角色服务实例"""
+        # 延迟导入避免循环依赖
+        from api.infrastructure.persistence.repositories.role_repository_impl import (
+            RoleRepository,
+        )
+        from api.usecases.role_service import RoleService
 
-## Tenant
-container.register(TenantRepository, scope=punq.Scope.singleton)
-container.register(TenantService, scope=punq.Scope.singleton)
+        async with self.get_session() as session:
+            role_repo = RoleRepository(session)
+            return RoleService(role_repo)
 
-## User
-container.register(UserRepository, scope=punq.Scope.singleton)
-container.register(UserPasswordResetRepository, scope=punq.Scope.singleton)
-container.register(UserService, scope=punq.Scope.singleton)
+    async def get_auth_service(self):
+        """获取认证服务实例"""
+        # 延迟导入避免循环依赖
+        from api.infrastructure.persistence.repositories.user_repository_impl import (
+            UserRepository,
+        )
+        from api.infrastructure.persistence.repositories.role_repository_impl import (
+            RoleRepository,
+        )
+        from api.usecases.user_service import UserService
+        from api.usecases.auth_service import AuthService
 
-## User Preference
-container.register(UserPreferenceRepository, scope=punq.Scope.singleton)
-container.register(UserPreferenceService, scope=punq.Scope.singleton)
+        async with self.get_session() as session:
+            user_repo = UserRepository(session)
+            role_repo = RoleRepository(session)
+            user_service = UserService(user_repo, role_repo)
+            return AuthService(user_service)
 
-## Role
-container.register(RoleRepository, scope=punq.Scope.singleton)
-container.register(RoleService, scope=punq.Scope.singleton)
-
-## Auth service
-container.register(AuthService, scope=punq.Scope.singleton)
-
-## Storage Settings
-container.register(StorageSettingsRepository, scope=punq.Scope.singleton)
-container.register(StorageSettingsService, scope=punq.Scope.singleton)
-
-## File Service
-container.register(FileService, scope=punq.Scope.singleton)
-
-## AI Components
-container.register(ChatSessionAIRepository, scope=punq.Scope.singleton)
-container.register(ChatHistoryAIRepository, scope=punq.Scope.singleton)
-container.register(LocalAIService, scope=punq.Scope.singleton)
-
-## Passkey Components
-container.register(UserPasskeyRepository, scope=punq.Scope.singleton)
-container.register(UserPasskeyChallengesRepository, scope=punq.Scope.singleton)
-container.register(PasskeyService, scope=punq.Scope.singleton)
-
-## Email magic link user login
-container.register(UserMagicLinkRepository, scope=punq.Scope.singleton)
-container.register(EmailMagicLinkService, scope=punq.Scope.singleton)
-
-
-def get_database() -> Database:
-    return container.resolve(Database)
-
-
-def get_tenant_service() -> TenantService:
-    return container.resolve(TenantService)
-
-
-def get_user_service() -> UserService:
-    return container.resolve(UserService)
-
-
-def get_user_preference_service() -> UserPreferenceService:
-    return container.resolve(UserPreferenceService)
+    def clear_instances(self):
+        """清除缓存的实例"""
+        self._instances.clear()
 
 
-def get_role_service() -> RoleService:
-    return container.resolve(RoleService)
-
-
-def get_jwt_token_service() -> JwtTokenService:
-    return container.resolve(JwtTokenService)
-
-
-def get_auth_service() -> AuthService:
-    return container.resolve(AuthService)
-
-
-def get_storage_settings_service() -> StorageSettingsService:
-    return container.resolve(StorageSettingsService)
-
-
-def get_storage_settings_repository() -> StorageSettingsRepository:
-    return container.resolve(StorageSettingsRepository)
-
-
-def get_file_service() -> FileService:
-    return container.resolve(FileService)
-
-
-def get_email_service() -> IEmailService:
-    return container.resolve(IEmailService)
-
-
-def get_local_ai_service() -> LocalAIService:
-    return container.resolve(LocalAIService)
-
-
-def get_dns_resolver() -> DnsResolver:
-    return container.resolve(DnsResolver)
-
-
-def get_coolify_app_service() -> CoolifyAppService:
-    return container.resolve(CoolifyAppService)
-
-
-def get_user_passkey_repository() -> UserPasskeyRepository:
-    return container.resolve(UserPasskeyRepository)
-
-
-def get_user_passkey_challenges_repository() -> UserPasskeyChallengesRepository:
-    return container.resolve(UserPasskeyChallengesRepository)
-
-
-def get_passkey_service() -> PasskeyService:
-    return container.resolve(PasskeyService)
-
-
-def get_user_magic_link_repository() -> UserMagicLinkRepository:
-    return container.resolve(UserMagicLinkRepository)
-
-
-def get_email_magic_link_service() -> EmailMagicLinkService:
-    return container.resolve(EmailMagicLinkService)
-
-
-print("Dependency injection container configured.")
+# 全局容器实例
+@lru_cache()
+def get_container() -> DependencyContainer:
+    """获取全局依赖注入容器实例"""
+    return DependencyContainer()

@@ -5,7 +5,7 @@ from fastapi import Depends, Request
 from api.common.utils import get_host_main_domain_name, get_logger, is_subdomain
 from api.core.config import settings
 
-from api.core.container import get_tenant_service
+from api.core.container import get_container
 from api.infrastructure.persistence.database import db
 from api.core.exceptions import TenantNotFoundException
 from api.domain.entities.tenant import Tenant
@@ -18,7 +18,7 @@ class TenantMiddleware(BaseHTTPMiddleware):
         tenant_id: Optional[str] = None
         tenant_host = get_tenant_host(request)
         logger.debug(f"Tenant host found: {tenant_host}")
-        tenant_service = get_tenant_service()
+        tenant_service = get_container().get_tenant_service()
 
         if tenant_host:
             try:

@@ -7,10 +7,10 @@ from api.common.utils import (
     get_tenancy_strategy,
     is_tenancy_enabled,
 )
-from api.core.container import (
-    get_passkey_service,
-    get_tenant_service,
-    get_user_preference_service,
+from api.core.dependencies import (
+    PasskeyServiceDep,
+    TenantServiceDep,
+    UserPreferenceServiceDep,
 )
 from api.core.exceptions import TenantNotFoundException
 from api.domain.entities.tenant import Tenant
@@ -43,11 +43,11 @@ async def get_tenant(service: TenantService, tenant_id: str | None) -> Tenant | 
 
 @router.get("/", response_model=AppConfigurationDto, status_code=status.HTTP_200_OK)
 async def get_app_configuration(
+    user_pref_service: UserPreferenceServiceDep,
+    tenant_service: TenantServiceDep,
+    passkey_service: PasskeyServiceDep,
     current_user: CurrentUserOptional,
     tenant_id=Depends(get_tenant_id),
-    user_pref_service: UserPreferenceService = Depends(get_user_preference_service),
-    tenant_service: TenantService = Depends(get_tenant_service),
-    passkey_service: PasskeyService = Depends(get_passkey_service),
 ):
     user_pref_doc = None
     current_tenant = None

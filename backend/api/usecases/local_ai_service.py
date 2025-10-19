@@ -28,40 +28,41 @@ class LocalAIService:
     async def get_user_sessions(
         self, user_id: str, limit: int = 100
     ) -> List[AISessionByUserIdDto]:
-        """
-        Get user sessions with chat histories
-        1. Match sessions by user_id
-        2. Sort by created_at desc
-        3. Limit by `limit`
-        4. Lookup chat histories by history_id
-        5. Return sessions with chat histories
-        6. Convert ObjectId to str in the result
-        7. Return the result as List[AISessionByUserIdDto]
-        """
-        pipeline = [
-            {"$match": {"user_id": UUID(user_id)}},
-            {"$sort": {"created_at": -1}},
-            {"$limit": limit},
-            {
-                "$lookup": {
-                    "from": await self.chat_history_repository.collection_name(),
-                    "localField": "history_id",
-                    "foreignField": "_id",
-                    "as": "sessions",
-                }
-            },
-        ]
-        sessions = await self.chat_session_repository.aggregate(
-            pipeline, projection_model=AISessions
+        """Get all sessions for a user"""
+        from sqlmodel import select, desc
+        from api.domain.entities.ai import ChatSessionAI, ChatHistoryAI
+
+        # Use the injected repository's session
+        session = self.chat_session_repository.session
+
+        # Get sessions for the user, ordered by created_at desc
+        statement = (
+            select(ChatSessionAI)
+            .where(ChatSessionAI.user_id == UUID(user_id))
+            .order_by(desc(ChatSessionAI.created_at))
+            .limit(limit)
         )
+        result = await session.execute(statement)
+        chat_sessions = result.scalars().all()
+
         results: List[AISessionByUserIdDto] = []
-        for s in sessions:
-            serializable_dict = s.to_serializable_dict()
-            if "sessions" in serializable_dict:
-                serializable_dict["sessions"] = [
-                    session.to_serializable_dict() for session in s.sessions
-                ]
-            results.append(AISessionByUserIdDto(**serializable_dict))
+        for chat_session in chat_sessions:
+            # Get associated chat history
+            history_statement = select(ChatHistoryAI).where(
+                ChatHistoryAI.id == chat_session.history_id
+            )
+            history_result = await session.execute(history_statement)
+            chat_history = history_result.scalar_one_or_none()
+
+            # Build session data
+            session_dict = chat_session.to_serializable_dict()
+            if chat_history:
+                session_dict["sessions"] = [chat_history.to_serializable_dict()]
+            else:
+                session_dict["sessions"] = []
+
+            results.append(AISessionByUserIdDto(**session_dict))
+
         logger.debug(f"Found {len(results)} sessions for user_id: {user_id}")
         return results
 
@@ -74,7 +75,7 @@ class LocalAIService:
         if not session:
             return []
         history = await self.chat_history_repository.single_or_none(
-            _id=session.history_id
+            id=session.history_id
         )
         if not history:
             return []
@@ -105,8 +106,8 @@ class LocalAIService:
             logger.debug(
                 f"Deleting history for session_id: {session_id}, user_id: {user_id} and history_id: {session.history_id}"
             )
-            await history.delete()
-        await session.delete()
+            await self.chat_history_repository.delete(history.id)
+        await self.chat_session_repository.delete(session.id)
 
     async def save_user_query(
         self,
@@ -151,7 +152,7 @@ class LocalAIService:
             )
         else:
             exisiting_history = await self.chat_history_repository.single_or_none(
-                _id=session.history_id
+                id=session.history_id
             )
             if not exisiting_history:
                 logger.error(
@@ -160,7 +161,9 @@ class LocalAIService:
                 return
             exisiting_history.histories.append(histories["histories"])
             exisiting_history.updated_at = get_utc_now()
-            await exisiting_history.save()
+            await self.chat_history_repository.update(
+                exisiting_history.id, exisiting_history.model_dump()
+            )
             logger.debug(
                 f"Chat history updated for user: {user_id}, session: {session.id} and history: {session.history_id}"
             )

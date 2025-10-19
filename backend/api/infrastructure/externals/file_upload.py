@@ -12,7 +12,7 @@ logger = get_logger(__name__)
 
 class FileUpload:
     def __init__(self):
-        from api.core.container import (
+        from api.core.dependencies import (
             get_storage_settings_repository,
         )  # To avoid circular imports
 

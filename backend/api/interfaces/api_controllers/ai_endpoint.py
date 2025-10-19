@@ -5,7 +5,7 @@ from fastapi.responses import StreamingResponse
 
 from api.common.dtos.new_session_dto import NewSessionResponseDto
 from api.common.exceptions import InvalidOperationException
-from api.core.container import get_local_ai_service, get_user_preference_service
+from api.core.dependencies import LocalAIServiceDep, UserPreferenceServiceDep
 from api.domain.dtos.ai_dto import AIAskRequestDto, AIModelInfoDto, AIHistoriesDto
 from api.infrastructure.security.current_user import CurrentUser
 from api.infrastructure.externals.local_ai_model import OllamaChat, OllamaModels
@@ -27,7 +27,7 @@ async def get_models(
 @router.get("/history", response_model=List[AISessionByUserIdDto])
 async def get_history(
     current_user: CurrentUser,
-    ai_service: LocalAIService = Depends(get_local_ai_service),
+    ai_service: LocalAIServiceDep,
 ):
     return await ai_service.get_user_sessions(current_user.id)
 
@@ -41,7 +41,7 @@ async def create_new_session(current_user: CurrentUser):
 async def get_single_session(
     current_user: CurrentUser,
     session_id: str,
-    ai_service: LocalAIService = Depends(get_local_ai_service),
+    ai_service: LocalAIServiceDep,
 ):
     return await ai_service.get_histories_by_session_id(current_user.id, session_id)
 
@@ -50,7 +50,7 @@ async def get_single_session(
 async def delete_session(
     current_user: CurrentUser,
     session_id: str,
-    ai_service: LocalAIService = Depends(get_local_ai_service),
+    ai_service: LocalAIServiceDep,
 ):
     await ai_service.delete_session(current_user.id, session_id)
     return status.HTTP_202_ACCEPTED
@@ -62,7 +62,7 @@ async def delete_session(
 async def set_preferred_model(
     current_user: CurrentUser,
     model_name: str,
-    user_preference: UserPreferenceService = Depends(get_user_preference_service),
+    user_preference: UserPreferenceServiceDep,
 ):
     if model_name is None or model_name.strip() == "":
         raise InvalidOperationException("Model name cannot be empty")
@@ -78,7 +78,7 @@ async def ask_ai(
     current_user: CurrentUser,
     query: AIAskRequestDto,
     background_tasks: BackgroundTasks,
-    local_ai_service: LocalAIService = Depends(get_local_ai_service),
+    local_ai_service: LocalAIServiceDep,
 ):
     if query.model_name is None or query.model_name.strip() == "":
         raise InvalidOperationException("Model name cannot be empty")

@@ -32,7 +32,7 @@ def mock_post_tenant_service():
 @pytest.fixture
 def mock_db():
     with patch(
-        "api.infrastructure.persistence.mongodb.Database", new_callable=AsyncMock
+        "api.infrastructure.persistence.database.db", new_callable=AsyncMock
     ) as mock_database:
         yield mock_database
 

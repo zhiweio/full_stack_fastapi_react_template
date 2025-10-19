@@ -10,7 +10,7 @@ from api.domain.enum.role import RoleType
 from api.common.enums.gender import Gender
 from api.common.seeder_utils import get_seed_roles
 from api.common.utils import get_logger
-from api.infrastructure.persistence.database import db
+from api.infrastructure.persistence.database import db, get_db_session
 
 logger = get_logger(__name__)
 
@@ -24,7 +24,7 @@ async def seed_initial_data():
 
 async def seed_data():
     """初始化角色和用户数据"""
-    async with db.get_session() as session:
+    async for session in get_db_session():
         try:
             # 初始化角色
             await seed_roles(session)

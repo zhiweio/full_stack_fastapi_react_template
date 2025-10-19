@@ -13,12 +13,11 @@ from api.common.exceptions import (
     InvalidOperationException,
 )
 from api.common.utils import get_logger
-from api.core.container import (
-    get_auth_service,
-    get_email_magic_link_service,
-    get_passkey_service,
-    get_role_service,
-    get_user_magic_link_repository,
+from api.core.dependencies import (
+    AuthServiceDep,
+    EmailMagicLinkServiceDep,
+    PasskeyServiceDep,
+    RoleServiceDep,
 )
 from api.core.exceptions import PassKeyException, UserNotFoundException
 from api.domain.dtos.auth_dto import (
@@ -63,7 +62,7 @@ router = APIRouter(prefix="/account", tags=["Account"])
 async def login(
     response: Response,
     login_request: Annotated[OAuth2PasswordRequestForm, Depends()],
-    auth_service: AuthService = Depends(get_auth_service),
+    auth_service: AuthServiceDep,
     x_tenant_id: str = Depends(get_tenant_id),
 ):
     logger.info(
@@ -88,7 +87,7 @@ async def login(
 async def refresh_token(
     response: Response,
     cookies: Annotated[Cookies, Cookie()],
-    auth_service: AuthService = Depends(get_auth_service),
+    auth_service: AuthServiceDep,
 ):
     if cookies.refresh_token is None:
         raise ForbiddenException("Refresh token missing!")
@@ -119,8 +118,8 @@ async def logout(
 @router.post("/register", status_code=status.HTTP_201_CREATED)
 async def register(
     data: CreateUserDto,
-    auth_service: AuthService = Depends(get_auth_service),
-    role_service: RoleService = Depends(get_role_service),
+    auth_service: AuthServiceDep,
+    role_service: RoleServiceDep,
     x_tenant_id: UUID | None = Depends(get_tenant_id),
 ):
     logger.info(f"Register attempt for user: {data.email} x_tenant_id: {x_tenant_id}")
@@ -155,7 +154,7 @@ async def read_users_me(current_user: CurrentUser):
 async def password_reset_request(
     request: PasswordResetRequestDto,
     frontend_host: FrontendHost,
-    auth_service: AuthService = Depends(get_auth_service),
+    auth_service: AuthServiceDep,
 ):
     try:
         await auth_service.initate_password_reset(request.email)
@@ -172,12 +171,12 @@ async def password_reset_request(
 @router.post("/password_reset_confirmation", response_model=PasswordResetResponseDto)
 async def password_reset_confirm(
     request: PasswordResetConfirmRequestDto,
+    auth_service: AuthServiceDep,
     token: str = Query(..., description="The password reset token"),
     user_id: str = Query(..., description="The user ID associated with the token"),
     tenant_id: str | None = Query(
         None, description="The tenant ID associated with the user, if applicable"
     ),
-    auth_service: AuthService = Depends(get_auth_service),
 ):
     logger.info(
         f"Password reset confirmation attempt for user_id: {user_id} with tenant_id: {tenant_id}"
@@ -195,7 +194,7 @@ async def password_reset_confirm(
 async def resend_activation_email(
     req: UserResendActivationEmailRequestDto,
     frontend_host: FrontendHost,
-    auth_service: AuthService = Depends(get_auth_service),
+    auth_service: AuthServiceDep,
     _bool: bool = Depends(
         check_permissions_for_current_role(
             required_permissions=[
@@ -212,10 +211,10 @@ async def resend_activation_email(
 @router.post("/activate", status_code=status.HTTP_200_OK)
 async def activate_account(
     req: UserActivationRequestDto,
+    auth_service: AuthServiceDep,
     tenant_id: str | None = Query(
         None, description="The tenant ID associated with the user, if applicable"
     ),
-    auth_service: AuthService = Depends(get_auth_service),
 ):
     await auth_service.activate_account(req)
     return status.HTTP_200_OK
@@ -226,7 +225,7 @@ async def change_email(
     request: ChangeEmailRequestDto,
     current_user: CurrentUser,
     frontend_host: FrontendHost,
-    auth_service: AuthService = Depends(get_auth_service),
+    auth_service: AuthServiceDep,
 ):
     try:
         await auth_service.change_email_request(
@@ -246,7 +245,7 @@ async def change_email(
 async def change_email_confirmation(
     request: ChangeEmailConfirmRequestDto,
     current_user: CurrentUser,
-    auth_service: AuthService = Depends(get_auth_service),
+    auth_service: AuthServiceDep,
 ):
     try:
         await auth_service.change_email_confirmation(token=request.token)
@@ -258,9 +257,9 @@ async def change_email_confirmation(
 
 @router.post("/passkey/register_options", status_code=status.HTTP_200_OK)
 async def passkey_register_options(
+    passkey_service: PasskeyServiceDep,
+    auth_service: AuthServiceDep,
     email: EmailStr = Body(...),
-    passkey_service: PasskeyService = Depends(get_passkey_service),
-    auth_service: AuthService = Depends(get_auth_service),
 ):
     user_service = await auth_service.get_user_service()
     user = await user_service.find_by_email(email=email)
@@ -270,9 +269,9 @@ async def passkey_register_options(
 
 @router.post("/passkey/register", status_code=status.HTTP_202_ACCEPTED)
 async def passkey_register(
+    passkey_service: PasskeyServiceDep,
     email: EmailStr = Body(...),
     credential: dict = Body(...),
-    passkey_service: PasskeyService = Depends(get_passkey_service),
 ):
     result = await passkey_service.complete_registration(email, credential)
     if result is False:
@@ -283,9 +282,9 @@ async def passkey_register(
 
 @router.post("/passkey/login_options", status_code=status.HTTP_200_OK)
 async def passkey_login_options(
+    passkey_service: PasskeyServiceDep,
+    auth_service: AuthServiceDep,
     email: EmailStr = Body(...),
-    passkey_service: PasskeyService = Depends(get_passkey_service),
-    auth_service: AuthService = Depends(get_auth_service),
 ):
     user_service = await auth_service.get_user_service()
     user = await user_service.find_by_email(email=email)
@@ -297,11 +296,11 @@ async def passkey_login_options(
     "/passkey/login", status_code=status.HTTP_200_OK, response_model=TokenSetDto
 )
 async def passkey_login(
+    passkey_service: PasskeyServiceDep,
+    auth_service: AuthServiceDep,
     response: Response,
     email: EmailStr = Body(...),
     credential: dict = Body(...),
-    passkey_service: PasskeyService = Depends(get_passkey_service),
-    auth_service: AuthService = Depends(get_auth_service),
 ):
     result = await passkey_service.complete_auth_login(email, credential)
     if result is False:
@@ -326,8 +325,8 @@ async def passkey_login(
     status_code=status.HTTP_200_OK,
 )
 async def has_passkeys(
+    passkey_service: PasskeyServiceDep,
     email: EmailStr = Body(...),
-    passkey_service: PasskeyService = Depends(get_passkey_service),
 ):
     return HasPasskeysDto(has_passkeys=await passkey_service.has_passkeys(email=email))
 
@@ -338,9 +337,9 @@ async def has_passkeys(
     status_code=status.HTTP_200_OK,
 )
 async def email_magic_link_login(
+    magic_link_service: EmailMagicLinkServiceDep,
+    auth_service: AuthServiceDep,
     email: EmailStr = Body(...),
-    magic_link_service: EmailMagicLinkService = Depends(get_email_magic_link_service),
-    auth_service: AuthService = Depends(get_auth_service),
 ):
     try:
         user_service = await auth_service.get_user_service()
@@ -373,14 +372,14 @@ async def email_magic_link_login(
     status_code=status.HTTP_200_OK,
 )
 async def email_magic_link_validate(
+    auth_service: AuthServiceDep,
+    magic_link_service: EmailMagicLinkServiceDep,
     response: Response,
     token: str = Query(..., description="The magic link token"),
     user_id: str = Query(..., description="The user ID associated with the token"),
     tenant_id: str | None = Query(
         None, description="The tenant ID associated with the user, if applicable"
     ),
-    auth_service: AuthService = Depends(get_auth_service),
-    magic_link_service: EmailMagicLinkService = Depends(get_email_magic_link_service),
 ):
     from urllib.parse import unquote
 

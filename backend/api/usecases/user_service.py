@@ -67,9 +67,10 @@ class UserService:
         # Todo: Refactor this to use Celery task to Or fire and forget
 
         # avoid circular import
-        # from api.core.container import get_auth_service
+        # from api.core.container import get_container
 
-        # auth_service = get_auth_service()
+        # auth_service = get_container().get_auth_service()
+
         # welcome_email = UserResendActivationEmailRequestDto(
         #     email=user_data.email,
         #     first_name=user_data.first_name,
@@ -100,7 +101,7 @@ class UserService:
             raise UserNotFoundException(user_id)
         hashed_password = hash_it(new_password)
         existing.password = hashed_password
-        await existing.save()
+        await self.user_repository.update(existing.id, existing.model_dump())
         return existing
 
     async def total_count(self, params: Any | None = None) -> int:

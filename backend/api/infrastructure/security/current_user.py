@@ -8,7 +8,11 @@ from api.domain.dtos.user_dto import UserDto
 from api.infrastructure.security.jwt_token_service import JwtTokenService
 from api.usecases.role_service import RoleService
 from api.usecases.user_service import UserService
-from api.core.container import get_role_service, get_user_service, get_jwt_token_service
+from api.core.dependencies import (
+    get_role_service,
+    get_user_service,
+    get_jwt_token_service,
+)
 from fastapi import Depends
 
 

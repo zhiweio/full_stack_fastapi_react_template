@@ -1,16 +1,17 @@
 from typing import Optional
 from uuid import UUID
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.common.base_repository import BaseRepository
-from api.common.utils import get_logger
-from api.domain.entities.storage_settings import StorageProvider, StorageSettings
+from api.common.utils import get_logger, validate_uuid
+from api.domain.entities.storage_settings import StorageSettings, StorageProvider
 
 logger = get_logger(__name__)
 
 
 class StorageSettingsRepository(BaseRepository[StorageSettings]):
-    def __init__(self):
-        super().__init__(StorageSettings)
+    def __init__(self, session: AsyncSession):
+        super().__init__(StorageSettings, session)
 
     async def configure_storage(self, setting: StorageSettings) -> UUID:
         """配置存储设置"""

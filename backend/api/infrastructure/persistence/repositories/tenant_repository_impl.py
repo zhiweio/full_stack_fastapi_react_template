@@ -3,43 +3,42 @@ from uuid import UUID
 from sqlmodel import select
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.common.base_repository import BaseRepository
 from api.common.exceptions import ConflictException
 from api.common.utils import get_logger
 from api.domain.dtos.tenant_dto import CreateTenantDto, TenantListDto
 from api.domain.entities.tenant import Tenant
-from api.infrastructure.persistence.database import db
 
 logger = get_logger(__name__)
 
 
 class TenantRepository(BaseRepository[Tenant]):
-    def __init__(self):
-        super().__init__(Tenant)
+    def __init__(self, session: AsyncSession):
+        super().__init__(Tenant, session)
 
     async def list(self, skip: int = 0, limit: int = 10) -> TenantListDto:
         """获取租户列表"""
-        async with db.get_session() as session:
-            # 获取总数
-            count_statement = select(func.count(Tenant.id))
-            total_result = await session.execute(count_statement)
-            total = total_result.scalar()
+        # 获取总数
+        count_statement = select(func.count(Tenant.id))
+        total_result = await self.session.execute(count_statement)
+        total = total_result.scalar()
 
-            # 获取分页数据
-            statement = select(Tenant).offset(skip).limit(limit)
-            result = await session.execute(statement)
-            tenants = result.scalars().all()
+        # 获取分页数据
+        statement = select(Tenant).offset(skip).limit(limit)
+        result = await self.session.execute(statement)
+        tenants = result.scalars().all()
 
-            tenant_dto = [tenant.to_serializable_dict() for tenant in tenants]
-            return TenantListDto(
-                tenants=tenant_dto,
-                skip=skip,
-                limit=limit,
-                total=total,
-                hasPrevious=skip > 0,
-                hasNext=skip + limit < total,
-            )
+        tenant_dto = [tenant.to_serializable_dict() for tenant in tenants]
+        return TenantListDto(
+            tenants=tenant_dto,
+            skip=skip,
+            limit=limit,
+            total=total,
+            hasPrevious=skip > 0,
+            hasNext=skip + limit < total,
+        )
 
     async def create(self, data: CreateTenantDto) -> UUID | None:
         """创建租户"""

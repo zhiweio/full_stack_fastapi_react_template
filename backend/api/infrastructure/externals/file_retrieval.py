@@ -7,7 +7,7 @@ from api.infrastructure.externals.s3_storage import S3Storage
 
 class FileRetrieval:
     def __init__(self):
-        from api.core.container import (
+        from api.core.dependencies import (
             get_storage_settings_repository,
         )  # To avoid circular imports
 

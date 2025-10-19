@@ -1,7 +1,7 @@
-from typing import List
+from typing import List, Optional
+from fastapi import Depends
 from api.common.exceptions import ForbiddenException
 from api.common.utils import get_logger, is_tenancy_enabled
-from api.core.container import get_role_service
 from api.domain.dtos.user_dto import UserDto
 from api.domain.enum.permission import Permission
 from api.infrastructure.security.current_user import CurrentUser
@@ -28,8 +28,7 @@ class UserAccessManagement:
         self.any_permission = any_permission
         self.allow_self_access = allow_self_access
 
-    async def get_role_detail(self, role_id: str):
-        role_service = get_role_service()
+    async def get_role_detail(self, role_id: str, role_service):
         role = await role_service.get_role_by_id(role_id=role_id)
         return role
 
@@ -52,7 +51,7 @@ class UserAccessManagement:
             # User needs ALL of the required permissions
             return all(perm in user_permissions for perm in required_permissions)
 
-    def __call__(self):
+    def __call__(self, role_service):
         async def check_permission(current_user: CurrentUser) -> bool:
             resource_id = current_user.id
             logger.info(f"Resource ID for self-access checking: {resource_id}")
@@ -63,7 +62,7 @@ class UserAccessManagement:
                     f"No role assigned. Required. Please contact support."
                 )
 
-            role = await self.get_role_detail(current_user.role_id)
+            role = await self.get_role_detail(current_user.role_id, role_service)
             user_permissions = role.permissions
 
             logger.info(

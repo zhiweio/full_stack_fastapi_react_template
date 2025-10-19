@@ -1,26 +1,25 @@
 from typing import Literal, Optional
 from uuid import UUID
-import base64
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.common.base_repository import BaseRepository
-from api.common.utils import get_logger
-from api.domain.entities.user_passkey import Challenges, UserPasskey
+from api.common.utils import get_logger, validate_uuid
+from api.domain.entities.user_passkey import UserPasskey, Challenges
 
 logger = get_logger(__name__)
 
 
 class UserPasskeyRepository(BaseRepository[UserPasskey]):
-    def __init__(self):
-        super().__init__(UserPasskey)
+    def __init__(self, session: AsyncSession):
+        super().__init__(UserPasskey, session)
 
     async def get_by_user_email(self, user_email: str) -> Optional[UserPasskey]:
-        """根据用户邮箱获取 Passkey"""
-        return await self.single_or_none(user_email=user_email)
+        return await self.get_by_field("email", user_email)
 
 
 class UserPasskeyChallengesRepository(BaseRepository[Challenges]):
-    def __init__(self):
-        super().__init__(Challenges)
+    def __init__(self, session: AsyncSession):
+        super().__init__(Challenges, session)
 
     async def save_challenge(
         self,

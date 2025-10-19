@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, status
 from api.common.dtos.worker_dto import WorkerPayloadDto
 from api.common.exceptions import ApiBaseException, InvalidOperationException
 from api.common.utils import get_host_main_domain_name, get_logger
-from api.core.container import get_tenant_service
+from api.core.dependencies import TenantServiceDep
 from api.core.exceptions import InvalidSubdomainException, TenantNotFoundException
 from api.domain.dtos.tenant_dto import (
     CreateTenantResponseDto,
@@ -33,9 +33,9 @@ router = APIRouter(prefix="/tenants", tags=["Tenants"])
 
 @router.get("/", response_model=TenantListDto, status_code=status.HTTP_200_OK)
 async def list_tenants(
+    service: TenantServiceDep,
     skip: int = 0,
     limit: int = 10,
-    service: TenantService = Depends(get_tenant_service),
     _bool: bool = Depends(
         check_permissions_for_current_role(
             required_permissions=[Permission.HOST_MANAGE_TENANTS]
@@ -50,7 +50,7 @@ async def list_tenants(
 )
 async def create_tenant(
     data: CreateTenantDto,
-    service: TenantService = Depends(get_tenant_service),
+    service: TenantServiceDep,
     _bool: bool = Depends(
         check_permissions_for_current_role(
             required_permissions=[Permission.HOST_MANAGE_TENANTS]
@@ -80,7 +80,7 @@ async def create_tenant(
 @router.delete("/{id}", status_code=status.HTTP_202_ACCEPTED)
 async def delete_tenant(
     id: str,
-    service: TenantService = Depends(get_tenant_service),
+    service: TenantServiceDep,
     _bool: bool = Depends(
         check_permissions_for_current_role(
             required_permissions=[Permission.HOST_MANAGE_TENANTS]
@@ -105,9 +105,7 @@ async def delete_tenant(
 @router.get(
     "/search_by_name/{name}", response_model=TenantDto, status_code=status.HTTP_200_OK
 )
-async def search_by_name(
-    name: str, service: TenantService = Depends(get_tenant_service)
-):
+async def search_by_name(name: str, service: TenantServiceDep):
     tenant = await service.find_by_name(name)
     tenant_doc = tenant.to_serializable_dict()
     return TenantDto(**tenant_doc)
@@ -118,9 +116,7 @@ async def search_by_name(
     response_model=TenantDto,
     status_code=status.HTTP_200_OK,
 )
-async def search_by_subdomain(
-    subdomain: Subdomain, service: TenantService = Depends(get_tenant_service)
-):
+async def search_by_subdomain(subdomain: Subdomain, service: TenantServiceDep):
     tenant = await service.find_by_subdomain(subdomain)
     tenant_doc = tenant.to_serializable_dict()
     return TenantDto(**tenant_doc)
@@ -131,9 +127,7 @@ async def search_by_subdomain(
     response_model=SubdomainAvailabilityDto,
     status_code=status.HTTP_200_OK,
 )
-async def check_subdomain_availability(
-    subdomain: Subdomain, service: TenantService = Depends(get_tenant_service)
-):
+async def check_subdomain_availability(subdomain: Subdomain, service: TenantServiceDep):
     try:
         await service.find_by_subdomain(subdomain)
         is_available = False
@@ -162,7 +156,7 @@ async def update_tenant_dns_record(
     tenant_id: str,
     data: UpdateTenantDto,
     current_user: CurrentUser,
-    tenant_service: TenantService = Depends(get_tenant_service),
+    tenant_service: TenantServiceDep,
     _bool: bool = Depends(
         check_permissions_for_current_role(
             required_permissions=[
@@ -196,7 +190,7 @@ async def update_tenant_dns_record(
         data.is_active if data.is_active is not None else tenant.is_active
     )
     tenant.custom_domain_status = "activation-progress" if data.custom_domain else None
-    await tenant.save()
+    await tenant_service.tenant_repository.update(tenant.id, tenant.model_dump())
     handle_tenant_dns_update.delay(payload=payload.model_dump_json())
     return UpdateTenantResponseDto(
         message="We have received your request. The changes will reflect in a few minutes. And email notification will be sent."
@@ -211,7 +205,7 @@ async def update_tenant_dns_record(
 async def check_dns_status(
     tenant_id: str,
     current_user: CurrentUser,
-    tenant_service: TenantService = Depends(get_tenant_service),
+    tenant_service: TenantServiceDep,
     _bool: bool = Depends(
         check_permissions_for_current_role(
             required_permissions=[

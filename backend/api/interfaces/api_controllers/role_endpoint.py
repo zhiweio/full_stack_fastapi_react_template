@@ -8,7 +8,7 @@ from api.domain.dtos.role_dto import (
     RoleListDto,
     UpdateRoleDto,
 )
-from api.core.container import get_role_service
+from api.core.dependencies import RoleServiceDep
 from api.domain.enum.permission import Permission
 from api.interfaces.security.role_checker import check_permissions_for_current_role
 from api.usecases.role_service import RoleService
@@ -21,9 +21,9 @@ router = APIRouter(prefix="/roles", tags=["Roles"])
 
 @router.get("/", response_model=RoleListDto)
 async def list_roles(
+    service: RoleServiceDep,
     skip: int = 0,
     limit: int = 10,
-    service: RoleService = Depends(get_role_service),
     _bool: bool = Depends(
         check_permissions_for_current_role(
             required_permissions=[Permission.ROLE_VIEW_ONLY]
@@ -37,12 +37,12 @@ async def list_roles(
 @router.get("/search_by_name", response_model=List[RoleDto])
 async def search_role_by_name(
     name: str,
+    service: RoleServiceDep,
     _bool: bool = Depends(
         check_permissions_for_current_role(
             required_permissions=[Permission.ROLE_VIEW_ONLY]
         )
     ),
-    service: RoleService = Depends(get_role_service),
 ):
     roles = await service.search_role_by_name(name)
     return [RoleDto(**(role.to_serializable_dict())) for role in roles]
@@ -53,7 +53,7 @@ async def search_role_by_name(
 )
 async def create_role(
     data: CreateRoleDto,
-    service: RoleService = Depends(get_role_service),
+    service: RoleServiceDep,
     _bool: bool = Depends(
         check_permissions_for_current_role(
             required_permissions=[Permission.ROLE_READ_AND_WRITE_ONLY]
@@ -67,7 +67,7 @@ async def create_role(
 @router.get("/{role_id}", response_model=RoleDto)
 async def get_role(
     role_id: str,
-    service: RoleService = Depends(get_role_service),
+    service: RoleServiceDep,
     _bool: bool = Depends(
         check_permissions_for_current_role(
             required_permissions=[Permission.ROLE_VIEW_ONLY]
@@ -83,7 +83,7 @@ async def get_role(
 async def update_role(
     role_id: str,
     data: UpdateRoleDto,
-    service: RoleService = Depends(get_role_service),
+    service: RoleServiceDep,
     _bool: bool = Depends(
         check_permissions_for_current_role(
             required_permissions=[Permission.ROLE_READ_AND_WRITE_ONLY]
@@ -98,7 +98,7 @@ async def update_role(
 @router.delete("/{role_id}", status_code=status.HTTP_202_ACCEPTED)
 async def delete_role(
     role_id: str,
-    service: RoleService = Depends(get_role_service),
+    service: RoleServiceDep,
     _bool: bool = Depends(
         check_permissions_for_current_role(
             required_permissions=[Permission.ROLE_DELETE_ONLY]

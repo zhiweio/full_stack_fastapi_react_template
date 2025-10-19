@@ -1,4 +1,6 @@
 from typing import Optional
+from uuid import uuid4
+from sqlalchemy.ext.asyncio import AsyncSession
 from api.common.utils import get_logger, validate_uuid, get_utc_now
 from datetime import datetime
 
@@ -10,8 +12,8 @@ logger = get_logger(__name__)
 
 
 class UserMagicLinkRepository(BaseRepository[UserMagicLink]):
-    def __init__(self):
-        super().__init__(UserMagicLink)
+    def __init__(self, session: AsyncSession):
+        super().__init__(UserMagicLink, session)
 
     async def create_magic_link(self, user_id: str, token: str) -> UserMagicLink:
         """

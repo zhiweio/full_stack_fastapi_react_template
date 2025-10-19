@@ -47,7 +47,7 @@ class PostTenantCreationTaskService(IBackgroundTask):
             role = await self.role_service.find_by_name(name=RoleType.ADMIN)
             logger.info(f"Assigning 'Admin' role to user {user.email}")
             user.role_id = role.id
-            await user.save()
+            await self.user_service.user_repository.update(user.id, user.model_dump())
             logger.info(f"Assigned 'Admin' role to user {user.email} successfully.")
         except EmailAlreadyExistsException as eae:
             logger.error(f"Email already exists: {eae} - Admin user creation skipped.")
