@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod"
-import { useEffect, useState } from "react"
+import { useEffect, useId, useState } from "react"
 import { useForm } from "react-hook-form"
 import z from "zod"
 import { Gender } from "@/components/features/auth/register"
@@ -80,6 +80,7 @@ export function CreateNewTenantDialog({
   open,
   onDismiss,
 }: CreateNewTenantDialogProps) {
+  const baseDomainId = useId()
   const { onCreateNewTenant } = useTenants()
   const appConfig = useAppConfig()
   const { setSubdomain, subdomainAvailability, isChecking, error } =
@@ -223,11 +224,11 @@ export function CreateNewTenantDialog({
                   )}
                 />
                 <span>
-                  <Label htmlFor="base-domain" className="pb-3">
+                  <Label htmlFor={baseDomainId} className="pb-3">
                     Base Domain
                   </Label>
                   <Input
-                    id="base-domain"
+                    id={baseDomainId}
                     type="text"
                     value={`.${mainDomainName}`}
                     disabled={true}

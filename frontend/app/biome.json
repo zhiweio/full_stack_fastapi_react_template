@@ -14,7 +14,10 @@
       "!**/build",
       "!**/.next",
       "!**/.vite",
-      "!**/src/api/**/*"
+      "!**/src/api/**/*",
+      "!**/src/components/ai-elements/**/*",
+      "!**/src/components/ui/**/*",
+      "!**/*.css"
     ]
   },
   "formatter": {

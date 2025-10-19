@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod"
-import { useEffect, useState } from "react"
+import { useEffect, useId, useState } from "react"
 import { useForm } from "react-hook-form"
 import { NavLink } from "react-router"
 import { toast } from "sonner"
@@ -82,6 +82,7 @@ const signupSchema = z
 type SignupFormInputs = z.infer<typeof signupSchema>
 
 export default function Register() {
+  const baseDomainId = useId()
   const [isLoading, setIsLoading] = useState(false)
   const { register } = useAuthContext()
   const appConfig = useAppConfig()
@@ -253,11 +254,11 @@ export default function Register() {
                       )}
                     />
                     <span>
-                      <Label htmlFor="base-domain" className="pb-3">
+                      <Label htmlFor={baseDomainId} className="pb-3">
                         Base Domain
                       </Label>
                       <Input
-                        id="base-domain"
+                        id={baseDomainId}
                         type="text"
                         value={`.${mainDomainName}`}
                         disabled={true}

@@ -354,7 +354,7 @@ export function AIChat() {
   return (
     <section className="h-full flex flex-col pb-10">
       {/* Page Header */}
-      {available_ai_models?.length == 0 && (
+      {available_ai_models?.length === 0 && (
         <Alert className="mb-5" variant="destructive">
           <AlertTitle>No AI Models Available</AlertTitle>
           <AlertDescription>

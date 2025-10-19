@@ -5,7 +5,7 @@ import {
   Database,
   Settings as SettingsIcon,
 } from "lucide-react"
-import { useEffect, useState } from "react"
+import { useEffect, useId, useState } from "react"
 import type { AvailableStorageProviderDTO } from "@/api"
 import { useAuthContext } from "@/components/providers/auth-provider"
 import {
@@ -39,6 +39,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 type StorageProvider = AvailableStorageProviderDTO["provider"]
 
 export function Settings() {
+  const bucketId = useId()
+  const accessKeyId = useId()
+  const secretKeyId = useId()
+  const containerId = useId()
+  const connectionStringId = useId()
+
   const { storages, onConfigureStorage, loading } = useSettings()
   const { can } = useAuthContext()
   const canManageSettings = can("manage:storage_settings")
@@ -278,9 +284,9 @@ export function Settings() {
 
                     {/* Bucket Name */}
                     <div className="space-y-2">
-                      <Label htmlFor="bucket">Bucket Name</Label>
+                      <Label htmlFor={bucketId}>Bucket Name</Label>
                       <Input
-                        id="bucket"
+                        id={bucketId}
                         type="text"
                         placeholder="my-app-bucket"
                         value={formData.aws_bucket_name || ""}
@@ -294,9 +300,9 @@ export function Settings() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {/* Access Key */}
                     <div className="space-y-2">
-                      <Label htmlFor="access-key">Access Key ID</Label>
+                      <Label htmlFor={accessKeyId}>Access Key ID</Label>
                       <Input
-                        id="access-key"
+                        id={accessKeyId}
                         type="text"
                         placeholder="AKIA..."
                         value={formData.aws_access_key || ""}
@@ -308,9 +314,9 @@ export function Settings() {
 
                     {/* Secret Key */}
                     <div className="space-y-2">
-                      <Label htmlFor="secret-key">Secret Access Key</Label>
+                      <Label htmlFor={secretKeyId}>Secret Access Key</Label>
                       <Input
-                        id="secret-key"
+                        id={secretKeyId}
                         type="password"
                         placeholder="••••••••••••••••"
                         value={formData.aws_secret_key || ""}
@@ -406,9 +412,9 @@ export function Settings() {
 
                     {/* Container Name */}
                     <div className="space-y-2">
-                      <Label htmlFor="container">Container Name</Label>
+                      <Label htmlFor={containerId}>Container Name</Label>
                       <Input
-                        id="container"
+                        id={containerId}
                         type="text"
                         placeholder="my-app-container"
                         value={formData.azure_container_name || ""}
@@ -421,9 +427,11 @@ export function Settings() {
 
                   {/* Connection String */}
                   <div className="space-y-2">
-                    <Label htmlFor="connection-string">Connection String</Label>
+                    <Label htmlFor={connectionStringId}>
+                      Connection String
+                    </Label>
                     <Input
-                      id="connection-string"
+                      id={connectionStringId}
                       type="password"
                       placeholder="DefaultEndpointsProtocol=https;AccountName=..."
                       value={formData.azure_connection_string || ""}

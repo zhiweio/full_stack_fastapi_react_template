@@ -100,9 +100,11 @@ export function TenantSetting() {
       setTimeout(async () => {
         await reloadAppConfig()
       }, 2000) // Slight delay to ensure backend has processed the status update
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error checking tenant DNS status:", error)
-      toast.error(error?.body?.detail || "Failed to check custom domain status")
+      toast.error(
+        (error as any)?.body?.detail || "Failed to check custom domain status"
+      )
     } finally {
       setIsLoading(false)
     }
@@ -196,9 +198,11 @@ export function TenantSetting() {
       setTimeout(async () => {
         await reloadAppConfig()
       }, 2000) // Slight delay to ensure backend has processed the status update
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error updating tenant DNS:", error)
-      toast.error(error?.body?.detail || "Failed to update custom domain")
+      toast.error(
+        (error as any)?.body?.detail || "Failed to update custom domain"
+      )
     } finally {
       setIsLoading(false)
     }

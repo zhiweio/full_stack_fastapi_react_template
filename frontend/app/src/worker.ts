@@ -4,7 +4,7 @@ let tenantId: string | null = null
 self.addEventListener(
   "message",
   (event: MessageEvent<{ tenantId: string }>) => {
-    if (event.data && event.data.tenantId) {
+    if (event.data?.tenantId) {
       console.log("Worker received tenantId:", event.data.tenantId)
       tenantId = event.data.tenantId
     } else if (event.data && event.data.tenantId === null) {
