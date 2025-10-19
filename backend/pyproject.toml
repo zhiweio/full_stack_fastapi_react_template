@@ -33,6 +33,5 @@ dependencies = [
     "sqlalchemy>=2.0.23",
     "sqlmodel>=0.0.14",
     "starlette>=0.48.0",
-    "streamlit>=1.49.1",
     "webauthn>=2.7.0",
 ]
