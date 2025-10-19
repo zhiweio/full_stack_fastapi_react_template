@@ -6,12 +6,18 @@ A modern React TypeScript application built with Vite, featuring a comprehensive
 
 This frontend application provides a complete user interface for the full-stack template, featuring:
 
-- **Modern React 19** with TypeScript for type safety
-- **Vite** for fast development and optimized builds
-- **Tailwind CSS 4** with shadcn/ui components for consistent design
-- **React Router 7** for client-side navigation
-- **React Hook Form** with Zod validation for forms
+- **Modern React 19** with TypeScript for type safety and latest React features
+- **Vite 7** for lightning-fast development and optimized builds
+- **Tailwind CSS 4** with native Vite integration and shadcn/ui components
+- **React Router 7** for modern client-side navigation and routing
+- **Biome** for ultra-fast linting and formatting (ESLint/Prettier alternative)
+- **AI SDK** for seamless AI chat integration with streaming responses
+- **WebAuthn** for passwordless authentication and enhanced security
+- **React Hook Form** with Zod validation for robust form handling
 - **Auto-generated API clients** from backend OpenAPI specifications
+- **Zustand** for lightweight and flexible state management
+- **nuqs** for type-safe URL state management and query parameters
+- **Advanced UI Components** including data tables, charts, carousels, and more
 
 ## 🏗️ Project Structure
 
@@ -39,7 +45,8 @@ src/
 │   │   ├── footer.tsx
 │   │   ├── loading.tsx
 │   │   └── list-*.tsx
-│   └── ui/               # shadcn/ui base components
+│   ├── ui/               # shadcn/ui base components
+│   └── ai-elements/      # Vercel ai-elements components
 ├── hooks/                # Custom React hooks
 ├── lib/                  # Utility functions
 │   ├── utils.ts         # General utilities
@@ -79,9 +86,14 @@ src/
 ```bash
 # Development
 pnpm dev                    # Start development server (port 3000)
-pnpm build                  # Build for production
+pnpm build                  # Build for production (TypeScript + Vite)
 pnpm preview                # Preview production build
-pnpm lint                   # Run ESLint
+pnpm type-check             # Run TypeScript type checking
+
+# Code Quality
+pnpm lint                   # Run Biome linter
+pnpm lint:fix               # Run Biome linter with auto-fix
+pnpm format                 # Format code with Biome
 
 # API Integration
 pnpm run generate:api       # Generate TypeScript API client from backend
@@ -93,26 +105,34 @@ pnpm run generate:api       # Generate TypeScript API client from backend
 
 The `vite.config.ts` includes:
 
-- **Development Server**: Runs on port 3000
+- **Development Server**: Runs on port 3000 with HMR
 - **API Proxy**: Routes `/api/*` to backend at `http://localhost:8000`
-- **Path Aliases**: `@/*` resolves to `src/*`
+- **Path Aliases**: `@/*` resolves to `src/*` for clean imports
 - **Build Output**: Builds to `../../backend/api/ui` for integrated deployment
-- **Tailwind Integration**: Native Tailwind CSS 4 support
+- **Tailwind Integration**: Native Tailwind CSS 4 support with `@tailwindcss/vite`
+- **React Plugin**: Fast Refresh and JSX transformation
+- **TypeScript**: Full TypeScript support with type checking
 
 ### TypeScript Configuration
 
-- **Strict Mode**: Full TypeScript strict mode enabled
-- **Path Mapping**: Absolute imports with `@/` prefix
-- **Modern Target**: ES2022 for optimal performance
+- **Strict Mode**: Full TypeScript strict mode enabled for maximum type safety
+- **Path Mapping**: Absolute imports with `@/` prefix for better organization
+- **Modern Target**: ES2022 for optimal performance and modern features
+- **React 19**: Latest React types with new features support
 
 ## 🎨 UI Components & Design System
 
 ### Component Library
 
-- **shadcn/ui**: High-quality, accessible React components
-- **Radix UI**: Unstyled, accessible primitives
-- **Lucide React**: Beautiful SVG icons
-- **Tailwind CSS**: Utility-first styling
+- **shadcn/ui**: High-quality, accessible React components built on Radix UI
+- **Vercel AI Elements**: Pre-built AI components for chat interfaces, message handling, and streaming responses
+- **ECharts & Recharts**: Comprehensive charting libraries for data visualization and interactive dashboards
+- **Radix UI**: Comprehensive collection of unstyled, accessible primitives
+- **Lucide React**: Beautiful, customizable SVG icon library (500+ icons)
+- **Tabler Icons**: Additional icon set with 4000+ free SVG icons
+- **Tailwind CSS 4**: Utility-first CSS framework with native Vite integration
+- **Class Variance Authority**: Type-safe component variants and styling
+- **Tailwind Merge**: Intelligent Tailwind class merging utility
 
 ### Theme System
 
@@ -123,20 +143,35 @@ The `vite.config.ts` includes:
 ### Key Components
 
 - **Layouts**: Dashboard with sidebar, default layout
-- **Forms**: React Hook Form with Zod validation
-- **Tables**: TanStack Table with sorting, filtering
-- **Charts**: Recharts integration for data visualization
-- **Notifications**: Sonner for toast notifications
+- **Forms**: React Hook Form with Zod validation and input components
+- **Data Tables**: TanStack Table with sorting, filtering, and pagination
+- **Charts**: Recharts integration for data visualization and ECharts support
+- **Notifications**: Sonner for beautiful toast notifications
+- **Carousels**: Embla Carousel for responsive image/content carousels
+- **Resizable Panels**: React Resizable Panels for flexible layouts
+- **Command Palette**: CMDK for searchable command interfaces
+- **Syntax Highlighting**: React Syntax Highlighter for code display
+- **Motion**: Framer Motion for smooth animations and transitions
+- **Drawers**: Vaul for mobile-friendly drawer components
 
 ## 🔐 Authentication & Authorization
 
 ### Auth Provider
 
 The `AuthProvider` manages:
-- User session state
-- JWT token handling
-- Automatic token refresh
-- Protected route access
+- User session state and JWT token handling
+- Automatic token refresh with background workers
+- Protected route access and role-based permissions
+- **WebAuthn Integration**: Passwordless authentication support
+- Multi-factor authentication capabilities
+
+### WebAuthn Support
+
+Modern passwordless authentication using:
+- **@simplewebauthn/browser**: Client-side WebAuthn implementation
+- Biometric authentication (fingerprint, face recognition)
+- Hardware security keys (YubiKey, etc.)
+- Enhanced security without passwords
 
 
 ## 🌐 API Integration
@@ -184,10 +219,21 @@ When the backend API changes:
 - **Tenant Switching**: Easy switching between tenants
 
 ### AI Chat Interface
-- **Real-time Streaming**: Live AI responses with typing indicators
-- **Model Selection**: Choose from available AI models
-- **Chat History**: Persistent conversation history
-- **Mobile Optimized**: Touch-friendly chat interface
+- **Real-time Streaming**: Live AI responses with typing indicators using AI SDK
+- **Model Selection**: Choose from available AI models with dynamic switching
+- **Chat History**: Persistent conversation history with local storage
+- **Mobile Optimized**: Touch-friendly chat interface with responsive design
+- **Token Management**: Built-in token counting and usage tracking
+- **Markdown Support**: Rich text rendering with syntax highlighting
+- **Streaming Responses**: Real-time response streaming with `use-stick-to-bottom`
+
+### Advanced UI Features
+- **XY Flow**: Interactive node-based diagrams and flowcharts
+- **Data Visualization**: ECharts integration for complex charts and graphs
+- **State Management**: Zustand for lightweight, scalable state management
+- **URL State**: nuqs for type-safe URL state synchronization
+- **OTP Input**: Secure one-time password input components
+- **Unique IDs**: nanoid for generating unique identifiers
 
 ### Role & Permission Management
 - **Dynamic Roles**: Create and edit roles with permissions
@@ -198,15 +244,41 @@ When the backend API changes:
 
 ### Tailwind CSS 4
 
-- **Native Integration**: Direct Vite plugin support
-- **Custom Configuration**: Extended theme with design tokens
-- **Dark Mode**: Automatic dark/light mode switching
-- **Responsive Design**: Mobile-first breakpoints
+- **Native Vite Integration**: Direct Vite plugin support with `@tailwindcss/vite`
+- **Custom Configuration**: Extended theme with design tokens and custom utilities
+- **Dark Mode**: Automatic dark/light mode switching with `next-themes`
+- **Responsive Design**: Mobile-first breakpoints with advanced responsive utilities
+- **Animation Support**: Built-in animations with `tw-animate-css` integration
 
 ### Component Styling
 
 ```typescript
-// Example component with Tailwind classes Shadcn UI https://ui.shadcn.com/docs/installation
+// Example component with Tailwind classes and CVA variants
+import { cva, type VariantProps } from "class-variance-authority"
+import { cn } from "@/lib/utils"
+
+const buttonVariants = cva(
+  "inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors",
+  {
+    variants: {
+      variant: {
+        default: "bg-primary text-primary-foreground hover:bg-primary/90",
+        destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
+        outline: "border border-input bg-background hover:bg-accent",
+      },
+      size: {
+        default: "h-10 px-4 py-2",
+        sm: "h-9 rounded-md px-3",
+        lg: "h-11 rounded-md px-8",
+      },
+    },
+    defaultVariants: {
+      variant: "default",
+      size: "default",
+    },
+  }
+)
+
 function Button({
   className,
   variant,
@@ -221,18 +293,28 @@ function Button({
 
   return (
     <Comp
-      data-slot="button"
       className={cn(buttonVariants({ variant, size, className }))}
       {...props}
     />
   )
 }
-
-export { Button, buttonVariants }
-
 ```
 
 ## 🧪 Development Workflow
+
+### Code Quality & Linting
+
+1. **Biome Integration**: Ultra-fast linting and formatting
+   ```bash
+   pnpm lint          # Check for linting issues
+   pnpm lint:fix      # Auto-fix linting issues
+   pnpm format        # Format code with Biome
+   ```
+
+2. **TypeScript**: Strict type checking with modern features
+   ```bash
+   pnpm type-check    # Run TypeScript compiler checks
+   ```
 
 ### API-First Development
 
@@ -247,6 +329,7 @@ export { Button, buttonVariants }
 2. **Custom Components**: Build in `components/shared/` for reusability
 3. **Feature Components**: Organize by feature in `components/features/`
 4. **Type Safety**: Use TypeScript interfaces for all props
+5. **Styling**: Use CVA for component variants and Tailwind for styling
 
 ### Form Handling
 
